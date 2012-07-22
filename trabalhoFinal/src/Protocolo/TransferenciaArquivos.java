@@ -1,10 +1,13 @@
 
 package Protocolo;
 
+import java.security.PublicKey;
+
 public class TransferenciaArquivos extends Comum{
 
     public TransferenciaArquivos(){
         super();
+        super.idServidor = "servidorArquivos";
 
         /*
          Verifica se está registrado no servidor de autenticação 
@@ -67,5 +70,14 @@ public class TransferenciaArquivos extends Comum{
         }
 
         super.state = CONNECTED;
+    }
+    
+    @Override
+    protected boolean idEhAutentico(String idCliente, PublicKey puCliente) {
+        /*Verificar autenticidade do idCliente
+        1. Busca chave publica do cliente no servidor de autenticacao
+        2. compara chaves: retorna false se não for igual e true se for igual*/
+        System.out.println("Verificando se "+idCliente+" é válido...");
+        return true;
     }
 }

@@ -1,10 +1,13 @@
 package Protocolo;
 
+import java.security.PublicKey;
+
 
 public class Autenticacao extends Comum{
     
     public Autenticacao(){
         super();
+        super.idServidor = "servidorAutenticacao";
         
         /* cria ou carrega a key store usada para armazenar as chaves públicas
          de quem se registrou.
@@ -49,5 +52,14 @@ public class Autenticacao extends Comum{
         }
 
         super.state = CONNECTED;
+    }
+
+    @Override
+    protected boolean idEhAutentico(String id, PublicKey pu) {
+        /*Verificar autenticidade do id 
+        1. Busca chave publica do id na keystore
+        2. compara chaves: retorna false se não for igual e true se for igual*/
+        System.out.println("Verificando se "+id+" é válido...");
+        return true;
     }
 }

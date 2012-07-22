@@ -38,11 +38,26 @@ public class Cliente {
     private PublicKey pukeyCliente = null;
     private String id_cliente = null;
     private ProtocoloCliente protocolo;
+    private ProtocoloCliente pAutenticacao;
 
     public Cliente() {
-        this.protocolo = new ProtocoloCliente(this.pukeyCliente,
-                this.prkeyCliente, this.skeyCliente, this.id_cliente);
+        /*Inicio codigo de teste*/
+        try {/*Apagar quando carrega_chaves estiver implementado*/
+            java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
+            kpg.initialize(2048);
+            java.security.KeyPair kp = kpg.generateKeyPair();
+            this.pukeyCliente = kp.getPublic();
+            this.prkeyCliente = kp.getPrivate();
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        /*Fim codigo de teste*/
+
         carrega_keystore();
+
+        this.protocolo = new ProtocoloCliente();
+        this.pAutenticacao = new ProtocoloCliente();
+        
 
         try {
             /*Inicializa sockets e streams para comunicar com servidores*/
@@ -50,6 +65,7 @@ public class Cliente {
 
             /*Lê e imprime a primeira mensagem enviada pelo servidor*/
             this.protocolo.leImprimeRespostaServidor(in);
+            this.pAutenticacao.leImprimeRespostaServidor(autin);
 
             while (!this.protocolo.isFecharConexao()) {
                     if (this.protocolo.isNaoConectado()) {
@@ -58,7 +74,14 @@ public class Cliente {
 
                         carrega_chaves();
 
-                        /*Necessário para fazer autenticacao no handshaking com o servidor*/
+                        /*reinicia protocolo com as chaves carregadas*/
+                        this.protocolo = new ProtocoloCliente(this.pukeyCliente, this.prkeyCliente, this.skeyCliente, this.id_cliente);
+                        this.pAutenticacao = new ProtocoloCliente(this.pukeyCliente,this.prkeyCliente, this.skeyCliente, this.id_cliente);
+
+                        /*Conectando no servidor de autenticacao*/
+                        this.pAutenticacao.do_handshaking(autout, autin);
+
+                        /*Conectando no servidor de arquivos*/
                         this.protocolo.usarAutenticacao(this.autin, this.autout);
                         this.protocolo.do_handshaking(out, in);
 
@@ -66,12 +89,12 @@ public class Cliente {
                         this.protocolo.processa_mensagem(out, in);
                     }
             }
+
             out.close();
             in.close();
             serverSocket.close();
-            autout.close();
-            autin.close();
-            autServerSocket.close();
+            encerrarServAut();
+            
             System.out.println("Client: Sucessfull exit!");
 
         } catch (IOException ex) {
@@ -139,5 +162,20 @@ public class Cliente {
     {
         /*Registrar id_cliente e chave publica no servidor de autenticacao*/
         return true; /*retorna true se conseguir registrar*/
+    }
+
+    private void encerrarServAut() {
+        try {
+            Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData("SAIR");
+            dataToServer.setMessage("SAIR");
+            autout.writeObject(dataToServer);
+            pAutenticacao.leImprimeRespostaServidor(autin);
+            
+            autout.close();
+            autin.close();
+            autServerSocket.close();
+        } catch (IOException ex) {
+            Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 }

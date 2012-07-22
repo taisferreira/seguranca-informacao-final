@@ -1,5 +1,6 @@
 package Protocolo;
 
+import Cifrador.CifradorRSA;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -43,6 +44,7 @@ public class ProtocoloCliente {
         this.idCliente = idcliente;
         this.skeyCliente = skeycliente;
     }
+    public ProtocoloCliente(){}
 
     public void do_handshaking(ObjectOutputStream out, ObjectInputStream in)
     {
@@ -160,8 +162,9 @@ public class ProtocoloCliente {
 
     /* 3. Enviar id_cliente para servidor*/
     private void enviarID(ObjectOutputStream out, String sMessage) {
-        try {
-            dataToServer = new ProtocolData(this.puCliente);
+        try {/*garantir que so o servidor abre*/
+            byte [] id = CifradorRSA.codificar(this.idCliente.getBytes(), this.puServidor);
+            dataToServer = new ProtocolData(id);
             dataToServer.setMessage(sMessage);
             out.writeObject(dataToServer);
         } catch (IOException ex) {
@@ -173,7 +176,10 @@ public class ProtocoloCliente {
     private void lerIDServ(ObjectInputStream in) {
         try {
             dataFromServer = (ProtocolData) in.readObject();
-            this.idServidor = dataFromServer.toString();
+            byte[] dados = dataFromServer.getBytes();
+            dados = Cifrador.CifradorRSA.decodificar(dados, prCliente);
+            this.idServidor = new String(dados);
+            System.out.println("IdServidor = "+this.idServidor);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ClassNotFoundException ex) {

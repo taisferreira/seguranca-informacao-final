@@ -17,17 +17,28 @@ public class Comum {
     /*Guarda estado inicial do protocolo, inicialmente aguardando conexao*/
     protected int state = WAITING;
     protected ProtocolData theOutput;
-    private PublicKey puCliente = null;
-    private String idCliente = null;
-    private PublicKey puSAuten = null;
-    private String idSAuten = null;
-    private PublicKey puServArq = null;
-    private PrivateKey prServArq = null;
-    private String idServArq = "servidorArquivos";
+    protected PublicKey puCliente = null;
+    protected String idCliente = null;
+    protected PublicKey puServidor;
+    protected PrivateKey prServidor;
+    protected String idServidor = "servidor";
 
     public Comum() {
         /*cria ou carrega a keystore onde armazenou seu par de chaves.
         Se ainda não tem um par de chaves, cria e salva na keystore*/
+
+        /*Inicio codigo de teste*/
+        try {/*Apagar quando construtor for implementado*/
+            java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
+            kpg.initialize(2048);
+            java.security.KeyPair kp = kpg.generateKeyPair();
+
+            this.puServidor = kp.getPublic();
+            this.prServidor = kp.getPrivate();
+        } catch (java.security.NoSuchAlgorithmException ex) {
+            java.util.logging.Logger.getLogger(Comum.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
+        }
+        /*Fim codigo de teste*/
     }
 
     public ProtocolData processInput(ProtocolData theInput) {
@@ -49,16 +60,24 @@ public class Comum {
                     puCliente = theInput.getKey();
 
                     /* 2. Envia a sua chave pública*/
-                    theOutput = new ProtocolData(puServArq);
+                    theOutput = new ProtocolData(puServidor);
 
 
                     /*Armazenar log*/
                 } else if (sMessage.equalsIgnoreCase("ID")) {
                     /* 3. Decriptografar login do cliente*/
+                    byte[] dados = theInput.getBytes();
+                    dados = Cifrador.CifradorRSA.decodificar(dados, prServidor);
+                    //dados = Cifrador.CifradorRSA.decodificar(dados, this.puCliente);
+
+                    this.idCliente = new String(dados);
+                    System.out.println("IdCliente = "+this.idCliente);
 
                     /* 4. Verificar cliente (Compara as chaves)*/
                     if (idEhAutentico(this.idCliente, puCliente)) {
-                        theOutput = new ProtocolData(this.idServArq);
+                        /*garantir que so o cliente abre*/
+                        byte [] bidServidor = Cifrador.CifradorRSA.codificar(this.idServidor.getBytes(), puCliente);
+                        theOutput = new ProtocolData(bidServidor);
                     } else {
                         theOutput = new ProtocolData("Cliente não é confiável.");
                         state = LOGINERROR;
@@ -110,10 +129,8 @@ public class Comum {
         state = CONNECTED;
     }
 
-    private boolean idEhAutentico(String idCliente, PublicKey puCliente) {
-        /*Verificar autenticidade do id do servidor de arquivos
-        1. Busca chave publica do cliente no servidor de autenticacao
-        2. compara chaves: retorna false se não for igual e true se for igual*/
+    /*Comportamento padrão: não verifica autenticidade*/
+    protected boolean idEhAutentico(String idCliente, PublicKey puCliente) {
         return true;
     }
 }
