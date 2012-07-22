@@ -228,7 +228,18 @@ public class Cliente {
                     out.writeObject(dataToServer);
                     leImprimeRespostaServidor(dataFromServer);
                     fecharConexao = true;
-                } else {
+                }
+                if (sMessage.equalsIgnoreCase("ENVIAR")) {
+                    /*
+                     1. Pede nome do arquivo em disco a ser transferido
+                     2. gera hash do conteudo do arquivo e criptografa com a
+                         CHAVE PUBLICA do cliente
+                     3. Concatena o hash com o arquivo
+                     4. Codifica o resultado com a chave secreta do cliente (skeyCliente)
+                     5. Envia para o arquivo e o nome do arquivo para servidor
+                     */
+                }
+                else {
                     System.out.println("Entre com um dado: ");
                     String sData = stdIn.readLine();
 
