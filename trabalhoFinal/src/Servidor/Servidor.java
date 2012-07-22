@@ -7,10 +7,20 @@ import java.util.logging.Logger;
 
 public class Servidor {
 
-    private final static String SERVERNAME = "localhost";
-    private final static int SERVERPORT = 7000;
+    private String SERVERNAME = "localhost";
+    private int SERVERPORT = 7000;
 
     public Servidor() {
+        init_servidor();
+    }
+
+    public Servidor(String servidor, int porta) {
+        this.SERVERNAME = servidor;
+        this.SERVERPORT = porta;
+        init_servidor();
+    }
+
+    private void init_servidor(){
         ServerSocket serverSocket = null;
         boolean listening = true;
 

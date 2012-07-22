@@ -16,7 +16,7 @@ import java.util.logging.Logger;
  */
 public class ServidorArquivos extends Servidor{
     public ServidorArquivos(){
-        super();
+        super("localhost", 7000);
     }
 
     public static void main(String[] args){

@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 public class ServidorAutenticacao extends Servidor{
 
     public ServidorAutenticacao(){
-        super();
+        super("localhost", 6000);
     }
     
     public static void main(String[] args){
