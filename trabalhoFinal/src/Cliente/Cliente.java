@@ -9,10 +9,18 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 
 import Protocolo.ProtocoloCliente;
-import java.security.PrivateKey;
-import java.security.PublicKey;
+import java.io.*;
+import java.math.BigInteger;
+import java.security.*;
+import java.security.cert.CertificateException;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.RSAPrivateKeySpec;
+import java.security.spec.RSAPublicKeySpec;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
 public class Cliente {
@@ -30,6 +38,9 @@ public class Cliente {
     private Socket serverSocket = null;
     private ObjectOutputStream out = null;
     private ObjectInputStream in = null;
+     //Modificado pela Kamylla
+    private KeyStore ks;
+    File file;
 
     private BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
 
@@ -37,10 +48,11 @@ public class Cliente {
     private PrivateKey prkeyCliente = null;
     private PublicKey pukeyCliente = null;
     private String id_cliente = null;
+    private String senha = null;
     private ProtocoloCliente protocolo;
     private ProtocoloCliente pAutenticacao;
 
-    public Cliente() {
+    public Cliente() throws IOException, KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, InvalidKeySpecException {
         /*Inicio codigo de teste*/
         try {/*Apagar quando carrega_chaves estiver implementado*/
             java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
@@ -103,7 +115,7 @@ public class Cliente {
 
     }
 
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, InvalidKeySpecException, CertificateException {
         new Cliente();
     }
 
@@ -134,16 +146,54 @@ public class Cliente {
 
     }
 
-    private void carrega_keystore() {
-        /*cria ou carrega keystore que o cliente usa para salvar suas chaves*/
+    private void carrega_keystore() throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
+        /*
+         * cria ou carrega keystore que o cliente usa para salvar suas chaves
+         */
+        ks = KeyStore.getInstance("JCEKS");
+        file = new File("D:\\key\\myks.keystore");
+
+        if (!file.exists()) {
+
+            //initialize empty keystore
+            ks.load(null, null);
+        } else {
+            //loads the keystore
+            FileInputStream fis = new FileInputStream(file);
+            ks.load(fis, null);
+            fis.close();
+
+        }
     }
 
-    private void carrega_chaves() {
-        /*Verifica se cliente já tem chaves salvas na keystore.
+    private boolean confereSenhas() throws IOException {
+        String senhaTemp = "teste";
+        String confirmaSenha = "teste1";
+        while (!(senhaTemp.equals(confirmaSenha))) {
+            System.out.println("Digite a senha: ");
+            senhaTemp = stdIn.readLine();
+            System.out.println("Confirme a senha: ");
+            confirmaSenha = stdIn.readLine();
+        }
+        senha = senhaTemp;
+        return true;
+    }
 
-        Se tiver: pede a senha para acessar as entradas deste login e carrega
-         suas as chaves.
+    private void carrega_chaves() throws KeyStoreException, IOException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, InvalidKeySpecException {
+        /*
+         * Verifica se cliente já tem chaves salvas na keystore.
+         *
+         * Se tiver: pede a senha para acessar as entradas deste login e carrega
+         * suas as chaves.
+         *
+         */
 
+
+        if (ks.isKeyEntry(id_cliente)) {
+            System.out.println("Digite sua senha: ");
+            senha = stdIn.readLine();
+            skeyCliente = ((SecretKey) ks.getKey(id_cliente, senha.toCharArray()));
+        /*
         Caso contrário, avisar que login não foi encontrado e perguntar se
          deseja registrar o login digitado:
             => Se a resposta for sim:
@@ -156,8 +206,53 @@ public class Cliente {
               4. Registra chave no ServAut: registrar(String id, PublicKey puk)
             => Se a resposta for não: não faça nada.
           */
-    }
 
+
+        } else {
+            String confirma = "t";
+            while (!(confirma.equals("s") || confirma.equals("n"))) {
+                System.out.println("Usuário não resgistrado.");
+                System.out.println("Deseja registar o login digitado?(s/n)");
+                confirma = stdIn.readLine();
+                if (confirma.equals("s")) {
+                    this.confereSenhas();
+                    //Creates a Key
+                    KeyGenerator keygen = KeyGenerator.getInstance("AES");
+                    // inicializacao do tamanho chave
+                    keygen.init(128);
+                    // obtencao da chave secreta
+                    this.skeyCliente = keygen.generateKey();
+
+
+                    KeyFactory kf = KeyFactory.getInstance("RSA");
+                    RSAPrivateKeySpec prspec = new RSAPrivateKeySpec(new BigInteger("10967329890609126549342864618470532711138147437917320994071629574339029161633059443601031534110334331301586615879817852513135997627023895462818039264327377"), new BigInteger("5492617935968578842524551055242684661259689567836829724696263574606033464197528124830013058381482085261392561829420128039731768130847357208373866284251129"));
+                    RSAPublicKeySpec puspec = new RSAPublicKeySpec(new BigInteger("10967329890609126549342864618470532711138147437917320994071629574339029161633059443601031534110334331301586615879817852513135997627023895462818039264327377"), new BigInteger("65537"));
+                    prkeyCliente = (RSAPrivateKey) kf.generatePrivate(prspec);
+                    pukeyCliente = (RSAPublicKey) kf.generatePublic(puspec);
+                    //saves the keystore
+                    ks.setKeyEntry(id_cliente, skeyCliente, senha.toCharArray(), null);
+                    
+                    /*
+                    Tem que salvar par de chaves no keystore
+                    * ks.setKeyEntry(senha, , senha.toCharArray(), null);
+                    */
+                    
+                    
+                    FileOutputStream fos = new FileOutputStream(file);
+                    //saves the keystore
+                    ks.store(fos, senha.toCharArray());
+                    fos.close();
+
+                    registrar(id_cliente, pukeyCliente);
+                } else {
+                    System.out.println("");
+                }
+            }
+        }
+
+    }
+    
+    
     public boolean registrar(String id, PublicKey puk)
     {
         /*Registrar id_cliente e chave publica no servidor de autenticacao*/
