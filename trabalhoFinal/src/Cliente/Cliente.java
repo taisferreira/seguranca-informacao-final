@@ -1,10 +1,5 @@
 package Cliente;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -40,7 +35,7 @@ public class Cliente {
     private ObjectInputStream in = null;
      //Modificado pela Kamylla
     private KeyStore ks;
-    File file;
+    private File file;
 
     private BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
 
@@ -94,7 +89,7 @@ public class Cliente {
                         this.pAutenticacao.do_handshaking(autout, autin);
 
                         /*Conectando no servidor de arquivos*/
-                        this.protocolo.usarAutenticacao(this.autin, this.autout);
+                        this.protocolo.usarAutenticacao(this.autin, this.autout, this.pAutenticacao);
                         this.protocolo.do_handshaking(out, in);
 
                     } else {

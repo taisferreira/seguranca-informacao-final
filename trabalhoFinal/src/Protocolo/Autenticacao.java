@@ -4,6 +4,7 @@ import java.security.PublicKey;
 
 
 public class Autenticacao extends Comum{
+    public static final int IDNOTFOUND = 5;
     
     public Autenticacao(){
         super();
@@ -19,7 +20,6 @@ public class Autenticacao extends Comum{
         String sMessage;
         sMessage = theInput.getMessage();
 
-        //Cliente está enviando um dado
         if (sMessage.equalsIgnoreCase("REGISTRAR")) {
             /*
              1. Verifica se cliente já foi registrado.
@@ -32,26 +32,41 @@ public class Autenticacao extends Comum{
              4. Armazena log
              */
             theOutput = new ProtocolData("Cliente registrado!");
+            super.state = CONNECTED;
         } 
         else if (sMessage.equalsIgnoreCase("CHAVE")) {
-            /*
-             1. verifica se tem entrada na key store para o id especificado.
+            /* 1. verifica se tem entrada na key store para o id especificado.*/
+            PublicKey pu = null;
+            
+            byte[] dados = theInput.getBytes();
+            dados = Cifrador.CifradorRSA.decodificar(dados, prServidor);
+            String id = new String(dados);
 
-             2. Se não tem, envia mensagem de chave não encontrada.
+            /* 2. Se tem, envia a chave encontrada.*/
+            /*Tirar comentários quando esta classe tiver sua keystore implementada.
+             Até lá qualquer id vai devolver chave==null*/
+            if (/*this.keystore.containsAlias(cid)*/true) {
+                /*
+                 pu = (PublicKey) this.keystore.getKey(id, keyStorePassword)
+                  */
+                theOutput = new ProtocolData(pu);
+                state = CONNECTED;
+            } 
+            else{/* 3. Se não tem, envia aviso de chave não encontrada.*/
+                theOutput = new ProtocolData(pu);
+                state = IDNOTFOUND;
+            }
 
-             3. Se tem, envia a chave encontrada.
-
-             4. Armazena log
-             */
-            theOutput = new ProtocolData("Chave encontrada!");
+            /* 4. Armazena log */
+            
         } else {
             theOutput = new ProtocolData("Use:\n\"REGISTRAR\" para se registrar"
                     + "\n\"BUSCAR\" para buscar uma chave pública" +
                     "\n\"SAIR\" para encenrrar a conexao");
-            
+            super.state = CONNECTED;
         }
 
-        super.state = CONNECTED;
+        
     }
 
     @Override
@@ -59,7 +74,6 @@ public class Autenticacao extends Comum{
         /*Verificar autenticidade do id 
         1. Busca chave publica do id na keystore
         2. compara chaves: retorna false se não for igual e true se for igual*/
-        System.out.println("Verificando se "+id+" é válido...");
         return true;
     }
 }

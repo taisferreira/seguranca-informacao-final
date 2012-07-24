@@ -24,6 +24,7 @@ public class ProtocoloCliente {
     private ProtocolData dataFromServer;
     private boolean naoConectado = true;
     private boolean fecharConexao = false;
+    private ProtocoloCliente autenticador;
 
     public boolean isFecharConexao() {
         return fecharConexao;
@@ -31,6 +32,9 @@ public class ProtocoloCliente {
 
     public boolean isNaoConectado() {
         return naoConectado;
+    }
+    public PublicKey getPuServidor(){
+        return this.puServidor;
     }
 
     private boolean verificarAutenticidade = false;
@@ -65,8 +69,9 @@ public class ProtocoloCliente {
 
                         if (this.verificarAutenticidade) {
                             if (false == idEhAutentico(this.idServidor, this.puServidor)) {
-                                System.out.println("Servidor de Arquivos não é confiável.");
-                                mensagem = "EXIT";
+                                System.out.println("Servidor não é confiável.");
+                                mensagem = "SAIR";
+                                this.fecharConexao = true;
                             }
                             else{
                                 System.out.println("Servidor de Arquivos é confiável. Abrindo conexão ...");
@@ -210,27 +215,56 @@ public class ProtocoloCliente {
         }
     }
 
-    /*precisa de handshaking aqui?*/
-    private boolean idEhAutentico(String string, PublicKey pukeySArq) {
-        /*Verificar autenticidade do id do servidor de arquivos
-        1. Busca chave publica do servidor arquivos no de autenticacao
-           buscar_chave(this.idServidor);
-        2. compara chaves: retorna false se não for igual e true se for igual*/
-        return true;
+    /*Verificar autenticidade do id do servidor de arquivos*/
+    private boolean idEhAutentico(String id, PublicKey pukey) {
+        /* 1. Busca chave publica do servidor arquivos no de autenticacao
+           buscar_chave(this.idServidor);*/
+        PublicKey chave = buscar_chave(id);
+        
+        /* 2. compara chaves: retorna false se não for igual e true se for igual*/
+        if(chave != null && chave.equals(pukey)){
+            return true;
+        }
+        else{
+            return false;
+        }
+        
     }
 
-    public void usarAutenticacao(ObjectInputStream in, ObjectOutputStream out)
+    public void usarAutenticacao(ObjectInputStream in, ObjectOutputStream out,
+            ProtocoloCliente pAutenticao)
     {
         this.verificarAutenticidade = true;
         this.outAutenticacao = out;
         this.inAutenticacao = in;
+        this.autenticador = pAutenticao;
     }
 
     public PublicKey buscar_chave(String id)
     {
-        /*Pede chave do id ao servidor de autenticacao
-         Se servidor de autenticacao tem chave, retorna a chave
-         Se não, retorna null*/
-        return null;
+        PublicKey puid = null;
+        try {
+            /*Pede chave do id ao servidor de autenticacao*/
+            byte[] bytesid = CifradorRSA.codificar(id.getBytes(), autenticador.getPuServidor());
+            dataToServer = new ProtocolData(bytesid);
+            dataToServer.setMessage("CHAVE");
+            outAutenticacao.writeObject(dataToServer);
+
+            /* Se servidor de autenticacao tem chave, retorna a chave
+            Se não, retorna null*/
+            dataFromServer = (ProtocolData) inAutenticacao.readObject();
+            puid = dataFromServer.getKey();
+
+            if(dataFromServer.getStatus() != Autenticacao.IDNOTFOUND){
+                System.out.println("Servidor de autenticação não achou "+id+".");                
+            }
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        //return puid;
+        return this.puServidor; /*código de teste*/
     }
 }

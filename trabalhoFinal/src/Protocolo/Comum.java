@@ -28,16 +28,10 @@ public class Comum {
         Se ainda não tem um par de chaves, cria e salva na keystore*/
 
         /*Inicio codigo de teste*/
-        try {/*Apagar quando construtor for implementado*/
-            java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
-            kpg.initialize(2048);
-            java.security.KeyPair kp = kpg.generateKeyPair();
-
-            this.puServidor = kp.getPublic();
-            this.prServidor = kp.getPrivate();
-        } catch (java.security.NoSuchAlgorithmException ex) {
-            java.util.logging.Logger.getLogger(Comum.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
-        }
+        /*Apagar quando construtor for implementado*/
+        java.security.KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
+        this.puServidor = kp.getPublic();
+        this.prServidor = kp.getPrivate();
         /*Fim codigo de teste*/
     }
 
@@ -88,10 +82,11 @@ public class Comum {
                     state = CONNECTED;
                 }
                 else {
-                    /*theOutput = new ProtocolData("Conectado!");
-                    state = CONNECTED;*/
-                    theOutput = new ProtocolData("Você não está conectado, "
+                    /*theOutput = new ProtocolData("Você não está conectado, "
                             + "envie \"CONECTAR\" para o servidor.");
+                    state = CONNECTED;*/
+                    theOutput = new ProtocolData("Encerrando...");
+                    state = EXIT;
                 }
                 break;
 

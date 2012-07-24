@@ -2,7 +2,6 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-
 package Cifrador;
 
 import java.security.InvalidKeyException;
@@ -21,6 +20,7 @@ import javax.crypto.NoSuchPaddingException;
  * @author tais
  */
 public class CifradorRSA {
+
     public static byte[] codificar(byte[] texto, PrivateKey chave) {
         try {
             Cipher c = Cipher.getInstance("RSA");
@@ -80,7 +80,7 @@ public class CifradorRSA {
         return null;
     }
 
-     public static byte[] decodificar(byte[] texto, PublicKey chave) {
+    public static byte[] decodificar(byte[] texto, PublicKey chave) {
         try {
             Cipher c = Cipher.getInstance("RSA");
             c.init(Cipher.DECRYPT_MODE, chave);
@@ -97,5 +97,17 @@ public class CifradorRSA {
             Logger.getLogger(CifradorRSA.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;
+    }
+
+    public static java.security.KeyPair gerarParChaves() {
+        java.security.KeyPair kp = null;
+        try {
+            java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
+            kpg.initialize(2048);
+            kp = kpg.generateKeyPair();
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(CifradorRSA.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return kp;
     }
 }
