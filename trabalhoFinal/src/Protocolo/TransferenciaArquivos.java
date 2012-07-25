@@ -1,18 +1,46 @@
 
 package Protocolo;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.net.Socket;
+import java.net.UnknownHostException;
 import java.security.PublicKey;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TransferenciaArquivos extends Comum{
+    /*Para conversar com o servidor de autenticacao*/
+    private final static String AUTENNAME = "localhost";
+    private final static int AUTENTPORT = 6000;
+    Socket autServerSocket;
+    ObjectOutputStream autout;
+    ObjectInputStream autin;
 
     public TransferenciaArquivos(){
         super();
-        super.idServidor = "servidorArquivos";
+        try {
+            idServidor = "servidorArquivos";
+            password = "senhaServidorArquivos";
+            arquivoKeyStore = "/tais/home/servidorArquivosKeyStore";
 
-        /*
-         Verifica se está registrado no servidor de autenticação 
-         ou se registra no servidor de autenticacao.
-         */
+            autServerSocket = new Socket(AUTENNAME, AUTENTPORT);
+            autout = new ObjectOutputStream(autServerSocket.getOutputStream());
+            autin = new ObjectInputStream(autServerSocket.getInputStream());
+            /*
+            Verifica se está registrado no servidor de autenticação
+            ou se registra no servidor de autenticacao.
+             */
+            if (false == this.idEhAutentico(idServidor, puServidor)) {
+                System.out.println("Servidor de arquivos tentando se registrar...");
+                registrar();
+            }
+        } catch (UnknownHostException ex) {
+            Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     @Override
@@ -73,11 +101,49 @@ public class TransferenciaArquivos extends Comum{
     }
     
     @Override
+    /*Verificar autenticidade do idCliente*/
     protected boolean idEhAutentico(String idCliente, PublicKey puCliente) {
-        /*Verificar autenticidade do idCliente
-        1. Busca chave publica do cliente no servidor de autenticacao
-        2. compara chaves: retorna false se não for igual e true se for igual*/
-        System.out.println("Verificando se "+idCliente+" é válido...");
-        return true;
+        /*ProtocoloCliente pc = new ProtocoloCliente(puServidor, prServidor, skeyServidor, idServidor);
+
+        //conecta no servidor de autenticacao
+        pc.do_handshaking(autout, autin);
+
+        //1. Busca chave publica do cliente no servidor de autenticacao
+        PublicKey pu = pc.buscar_chave(idCliente);
+
+        //encerra conexão
+        pc.encerrar_conexao(autout, autin);
+        try {
+            autServerSocket.close();
+        } catch (IOException ex) {
+            Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+       // 2. compara chaves: retorna false se não for igual e true se for igual
+        if(pu != null && pu.equals(puCliente)){
+            System.out.println(idCliente+" foi registrado no SAut.");
+            return true;
+        }
+        System.out.println(idCliente+" não está registrado no SAut.");
+        return false;*/
+        return true;/*o código acima contém bugs*/
+    }
+
+    private void registrar() {
+        ProtocoloCliente pc = new ProtocoloCliente(puServidor, prServidor, skeyServidor, idServidor);
+
+        /*conecta no servidor de autenticacao*/
+        pc.do_handshaking(autout, autin);
+
+        /*pede para se registrar*/
+        pc.registrar(prServidor, cert);
+
+        /*encerra conexão*/
+        pc.encerrar_conexao(autout, autin);
+        try {
+            autServerSocket.close();
+        } catch (IOException ex) {
+            Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 }

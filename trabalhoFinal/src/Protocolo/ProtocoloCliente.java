@@ -8,11 +8,13 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.cert.X509Certificate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
 
 public class ProtocoloCliente {
+
     private BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
     private SecretKey skeyCliente = null;
     private PublicKey puCliente;
@@ -33,10 +35,10 @@ public class ProtocoloCliente {
     public boolean isNaoConectado() {
         return naoConectado;
     }
-    public PublicKey getPuServidor(){
+
+    public PublicKey getPuServidor() {
         return this.puServidor;
     }
-
     private boolean verificarAutenticidade = false;
     private ObjectOutputStream outAutenticacao;
     private ObjectInputStream inAutenticacao;
@@ -48,10 +50,11 @@ public class ProtocoloCliente {
         this.idCliente = idcliente;
         this.skeyCliente = skeycliente;
     }
-    public ProtocoloCliente(){}
 
-    public void do_handshaking(ObjectOutputStream out, ObjectInputStream in)
-    {
+    public ProtocoloCliente() {
+    }
+
+    public void do_handshaking(ObjectOutputStream out, ObjectInputStream in) {
         String mensagem = "CONECTAR";
         while (naoConectado) {
             if (mensagem != null) {
@@ -72,8 +75,7 @@ public class ProtocoloCliente {
                                 System.out.println("Servidor não é confiável.");
                                 mensagem = "SAIR";
                                 this.fecharConexao = true;
-                            }
-                            else{
+                            } else {
                                 System.out.println("Servidor de Arquivos é confiável. Abrindo conexão ...");
                             }
                         }
@@ -102,31 +104,28 @@ public class ProtocoloCliente {
                     out.writeObject(dataToServer);
                     leImprimeRespostaServidor(in);
                     fecharConexao = true;
-                }
-                else if (mensagem.equalsIgnoreCase("ENVIAR")) {
+                } else if (mensagem.equalsIgnoreCase("ENVIAR")) {
                     /*
-                     1. Pede nome do arquivo em disco a ser transferido
-                     2. gera hash do conteudo do arquivo e criptografa com a
-                         CHAVE PUBLICA do cliente
-                     3. Concatena o hash com o arquivo
-                     4. Codifica o resultado com a chave secreta do cliente (skeyCliente)
-                     5. Envia para o arquivo e o nome do arquivo para servidor
+                    1. Pede nome do arquivo em disco a ser transferido
+                    2. gera hash do conteudo do arquivo e criptografa com a
+                    CHAVE PUBLICA do cliente
+                    3. Concatena o hash com o arquivo
+                    4. Codifica o resultado com a chave secreta do cliente (skeyCliente)
+                    5. Envia para o arquivo e o nome do arquivo para servidor
                      */
-                }
-                else if (mensagem.equalsIgnoreCase("BUSCAR")) {
+                } else if (mensagem.equalsIgnoreCase("BUSCAR")) {
                     /*
-                     1. Pede para servidor listar arquivos(envia LISTAR).
-                     2. Le lista recebida e imprime na tela
-                     3. Le nome do arquivo do teclado e envia BUSCAR para o servidor de arquivos
-                     4. Le arquivo (sequencia de bytes) enviado pelo servidor
-                     5. Decriptografa com skeycliente.
-                     6. Separa bytes do arquivo dos bytes do hash
-                     7. Descriptografa hash com prCliente
-                     8. gera hash dos bytes do arquivo e compara.
-                     9. Se o hash for o mesmo, salva o arquivo em uma pasta de downloads
+                    1. Pede para servidor listar arquivos(envia LISTAR).
+                    2. Le lista recebida e imprime na tela
+                    3. Le nome do arquivo do teclado e envia BUSCAR para o servidor de arquivos
+                    4. Le arquivo (sequencia de bytes) enviado pelo servidor
+                    5. Decriptografa com skeycliente.
+                    6. Separa bytes do arquivo dos bytes do hash
+                    7. Descriptografa hash com prCliente
+                    8. gera hash dos bytes do arquivo e compara.
+                    9. Se o hash for o mesmo, salva o arquivo em uma pasta de downloads
                      */
-                }
-                else {
+                } else {
                     System.out.println("Entre com um dado: ");
                     String sData = stdIn.readLine();
 
@@ -168,7 +167,7 @@ public class ProtocoloCliente {
     /* 3. Enviar id_cliente para servidor*/
     private void enviarID(ObjectOutputStream out, String sMessage) {
         try {/*garantir que so o servidor abre*/
-            byte [] id = CifradorRSA.codificar(this.idCliente.getBytes(), this.puServidor);
+            byte[] id = CifradorRSA.codificar(this.idCliente.getBytes(), this.puServidor);
             dataToServer = new ProtocolData(id);
             dataToServer.setMessage(sMessage);
             out.writeObject(dataToServer);
@@ -184,7 +183,7 @@ public class ProtocoloCliente {
             byte[] dados = dataFromServer.getBytes();
             dados = Cifrador.CifradorRSA.decodificar(dados, prCliente);
             this.idServidor = new String(dados);
-            System.out.println("IdServidor = "+this.idServidor);
+            System.out.println("IdServidor = " + this.idServidor);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ClassNotFoundException ex) {
@@ -217,31 +216,27 @@ public class ProtocoloCliente {
 
     /*Verificar autenticidade do id do servidor de arquivos*/
     private boolean idEhAutentico(String id, PublicKey pukey) {
-        /* 1. Busca chave publica do servidor arquivos no de autenticacao
-           buscar_chave(this.idServidor);*/
+        /* 1. Busca chave publica do servidor arquivos no de autenticacao*/
         PublicKey chave = buscar_chave(id);
-        
+
         /* 2. compara chaves: retorna false se não for igual e true se for igual*/
-        if(chave != null && chave.equals(pukey)){
+        if (chave != null && chave.equals(pukey)) {
             return true;
-        }
-        else{
+        } else {
             return false;
         }
-        
+
     }
 
     public void usarAutenticacao(ObjectInputStream in, ObjectOutputStream out,
-            ProtocoloCliente pAutenticao)
-    {
+            ProtocoloCliente pAutenticao) {
         this.verificarAutenticidade = true;
         this.outAutenticacao = out;
         this.inAutenticacao = in;
         this.autenticador = pAutenticao;
     }
 
-    public PublicKey buscar_chave(String id)
-    {
+    public PublicKey buscar_chave(String id) {
         PublicKey puid = null;
         try {
             /*Pede chave do id ao servidor de autenticacao*/
@@ -255,8 +250,8 @@ public class ProtocoloCliente {
             dataFromServer = (ProtocolData) inAutenticacao.readObject();
             puid = dataFromServer.getKey();
 
-            if(dataFromServer.getStatus() != Autenticacao.IDNOTFOUND){
-                System.out.println("Servidor de autenticação não achou "+id+".");                
+            if (dataFromServer.getStatus() != Autenticacao.IDNOTFOUND) {
+                System.out.println("Servidor de autenticação não achou " + id + ".");
             }
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
@@ -266,5 +261,27 @@ public class ProtocoloCliente {
 
         //return puid;
         return this.puServidor; /*código de teste*/
+    }
+
+    public boolean registrar(PrivateKey prServidor, X509Certificate cert) {
+        /*Enviar "REGISTRAR" para servidor de autenticacao com o certificado*/
+
+        /*Se servidor responder que já foi registrado retorna false
+        senão retorna true*/
+
+        return true; /*retorna true quando consegue se registrar*/
+    }
+
+    void encerrar_conexao(ObjectOutputStream autout, ObjectInputStream autin) {
+        try {
+            dataToServer = new Protocolo.ProtocolData("SAIR");
+            dataToServer.setMessage("SAIR");
+            autout.writeObject(dataToServer);
+            leImprimeRespostaServidor(autin);
+            autout.close();
+            autin.close();
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 }

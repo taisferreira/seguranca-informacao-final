@@ -251,6 +251,7 @@ public class Cliente {
     public boolean registrar(String id, PublicKey puk)
     {
         /*Registrar id_cliente e chave publica no servidor de autenticacao*/
+        //pAutenticacao.registrar(prkeyCliente, certificado);
         return true; /*retorna true se conseguir registrar*/
     }
 

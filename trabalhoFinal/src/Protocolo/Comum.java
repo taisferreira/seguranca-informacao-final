@@ -1,7 +1,10 @@
 package Protocolo;
 
+import armazemChaves.ArmazemChaves;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.cert.X509Certificate;
+import javax.crypto.SecretKey;
 
 public class Comum {
 
@@ -21,18 +24,32 @@ public class Comum {
     protected String idCliente = null;
     protected PublicKey puServidor;
     protected PrivateKey prServidor;
+    protected X509Certificate cert;
+    protected SecretKey skeyServidor;
     protected String idServidor = "servidor";
+    protected String password = "servidor";
+    protected ArmazemChaves chaves;
+    protected String arquivoKeyStore = "/home/tais/serverKeyStore.ks";
 
     public Comum() {
-        /*cria ou carrega a keystore onde armazenou seu par de chaves.
-        Se ainda não tem um par de chaves, cria e salva na keystore*/
+        /*Cria ou carrega a keystore onde armazenou seu par de chaves.*/
+        chaves = new ArmazemChaves(arquivoKeyStore, password);
 
-        /*Inicio codigo de teste*/
-        /*Apagar quando construtor for implementado*/
-        java.security.KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
-        this.puServidor = kp.getPublic();
-        this.prServidor = kp.getPrivate();
-        /*Fim codigo de teste*/
+        /*Se ainda não tem um par de chaves, cria e salva na keystore*/
+        this.cert = chaves.pegaCertificado(idServidor);
+        if(cert == null){
+            java.security.KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
+            this.puServidor = kp.getPublic();
+            this.prServidor = kp.getPrivate();
+            chaves.guardaKeyPair(idServidor, password, kp);
+            this.cert = chaves.pegaCertificado(idServidor);
+            /*chaves.guardaPublicKey(idServidor, puServidor, password);
+            chaves.guardaPrivateKey(idServidor, prServidor, password);*/
+        }
+        else{
+            this.puCliente = cert.getPublicKey();
+            this.prServidor = chaves.pegaPrivateKey(idServidor, password);
+        }
     }
 
     public ProtocolData processInput(ProtocolData theInput) {
