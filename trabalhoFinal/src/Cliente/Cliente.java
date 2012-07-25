@@ -187,7 +187,23 @@ public class Cliente {
         if (ks.isKeyEntry(id_cliente)) {
             System.out.println("Digite sua senha: ");
             senha = stdIn.readLine();
+            try{
             skeyCliente = ((SecretKey) ks.getKey(id_cliente, senha.toCharArray()));
+            }catch(KeyStoreException ex ){
+                
+                System.out.println("Senha errada! Digite novamente.");
+                carrega_chaves();
+                
+            }catch(NoSuchAlgorithmException ex){
+                System.out.println("Senha errada! Digite novamente.");
+                carrega_chaves();
+            }
+            catch(UnrecoverableKeyException ex){
+                System.out.println("Senha errada! Digite novamente.");
+                carrega_chaves();
+                
+            }
+           
         /*
         Caso contrário, avisar que login não foi encontrado e perguntar se
          deseja registrar o login digitado:
