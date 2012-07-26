@@ -1,5 +1,7 @@
 package Cliente;
 
+import Cifrador.CifradorRSA;
+import Protocolo.ProtocolData;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -33,12 +35,10 @@ public class Cliente {
     private Socket serverSocket = null;
     private ObjectOutputStream out = null;
     private ObjectInputStream in = null;
-     //Modificado pela Kamylla
+    //Modificado pela Kamylla
     private KeyStore ks;
     private File file;
-
     private BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
-
     private SecretKey skeyCliente = null;
     private PrivateKey prkeyCliente = null;
     private PublicKey pukeyCliente = null;
@@ -75,26 +75,26 @@ public class Cliente {
             this.pAutenticacao.leImprimeRespostaServidor(autin);
 
             while (!this.protocolo.isFecharConexao()) {
-                    if (this.protocolo.isNaoConectado()) {
-                        System.out.println("digite seu login: ");
-                        this.id_cliente = stdIn.readLine();
+                if (this.protocolo.isNaoConectado()) {
+                    System.out.println("digite seu login: ");
+                    this.id_cliente = stdIn.readLine();
 
-                        carrega_chaves();
+                    carrega_chaves();
 
-                        /*reinicia protocolo com as chaves carregadas*/
-                        this.protocolo = new ProtocoloCliente(this.pukeyCliente, this.prkeyCliente, this.skeyCliente, this.id_cliente);
-                        this.pAutenticacao = new ProtocoloCliente(this.pukeyCliente,this.prkeyCliente, this.skeyCliente, this.id_cliente);
+                    /*reinicia protocolo com as chaves carregadas*/
+                    this.protocolo = new ProtocoloCliente(this.pukeyCliente, this.prkeyCliente, this.skeyCliente, this.id_cliente);
+                    this.pAutenticacao = new ProtocoloCliente(this.pukeyCliente, this.prkeyCliente, this.skeyCliente, this.id_cliente);
 
-                        /*Conectando no servidor de autenticacao*/
-                        this.pAutenticacao.do_handshaking(autout, autin);
+                    /*Conectando no servidor de autenticacao*/
+                    this.pAutenticacao.do_handshaking(autout, autin);
 
-                        /*Conectando no servidor de arquivos*/
-                        this.protocolo.usarAutenticacao(this.autin, this.autout, this.pAutenticacao);
-                        this.protocolo.do_handshaking(out, in);
+                    /*Conectando no servidor de arquivos*/
+                    this.protocolo.usarAutenticacao(this.autin, this.autout, this.pAutenticacao);
+                    this.protocolo.do_handshaking(out, in);
 
-                    } else {
-                        this.protocolo.processa_mensagem(out, in);
-                    }
+                } else {
+                    this.protocolo.processa_mensagem(out, in);
+                }
             }
 
             out.close();
@@ -127,11 +127,11 @@ public class Cliente {
             System.exit(1);
         }
 
-        try{
+        try {
             autServerSocket = new Socket(AUTENNAME, AUTENTPORT);
             autout = new ObjectOutputStream(autServerSocket.getOutputStream());
             autin = new ObjectInputStream(autServerSocket.getInputStream());
-        }catch (UnknownHostException e) {
+        } catch (UnknownHostException e) {
             System.err.println(AUTENNAME + " : Unkown Host");
             System.exit(1);
         } catch (IOException e) {
@@ -187,36 +187,35 @@ public class Cliente {
         if (ks.isKeyEntry(id_cliente)) {
             System.out.println("Digite sua senha: ");
             senha = stdIn.readLine();
-            try{
-            skeyCliente = ((SecretKey) ks.getKey(id_cliente, senha.toCharArray()));
-            }catch(KeyStoreException ex ){
+            try {
+                skeyCliente = ((SecretKey) ks.getKey(id_cliente, senha.toCharArray()));
+            } catch (KeyStoreException ex) {
 
                 System.out.println("Senha errada! Digite novamente.");
                 carrega_chaves();
 
-            }catch(NoSuchAlgorithmException ex){
+            } catch (NoSuchAlgorithmException ex) {
                 System.out.println("Senha errada! Digite novamente.");
                 carrega_chaves();
+            } catch (UnrecoverableKeyException ex) {
+                System.out.println("Senha errada! Digite novamente.");
+                carrega_chaves();
+
             }
-            catch(UnrecoverableKeyException ex){
-                System.out.println("Senha errada! Digite novamente.");
-                carrega_chaves();
 
-            }
-
-        /*
-        Caso contrário, avisar que login não foi encontrado e perguntar se
-         deseja registrar o login digitado:
+            /*
+            Caso contrário, avisar que login não foi encontrado e perguntar se
+            deseja registrar o login digitado:
             => Se a resposta for sim:
-              1. Pede pra digitar e confirmar uma senha que será usada para
-                 proteger as entradas deste longin na keystore.
-              2. Cria o par de chaves assimetricas, salva na keystore e
-               inicializa as variáveis globais pukeyCliente e prkeyCliente
-              3. Cria uma chave secreta (simétrica), salva na keystore e
-                 inicializa a variável global skeyCliente
-              4. Registra chave no ServAut: registrar(String id, PublicKey puk)
+            1. Pede pra digitar e confirmar uma senha que será usada para
+            proteger as entradas deste longin na keystore.
+            2. Cria o par de chaves assimetricas, salva na keystore e
+            inicializa as variáveis globais pukeyCliente e prkeyCliente
+            3. Cria uma chave secreta (simétrica), salva na keystore e
+            inicializa a variável global skeyCliente
+            4. Registra chave no ServAut: registrar(String id, PublicKey puk)
             => Se a resposta for não: não faça nada.
-          */
+             */
 
 
         } else {
@@ -245,8 +244,8 @@ public class Cliente {
 
                     /*
                     Tem que salvar par de chaves no keystore
-                    * ks.setKeyEntry(senha, , senha.toCharArray(), null);
-                    */
+                     * ks.setKeyEntry(senha, , senha.toCharArray(), null);
+                     */
 
 
                     FileOutputStream fos = new FileOutputStream(file);
@@ -263,12 +262,20 @@ public class Cliente {
 
     }
 
-
-    public boolean registrar(String id, PublicKey puk)
-    {
+    public boolean registrar(String id, PublicKey puk) {
         /*Registrar id_cliente e chave publica no servidor de autenticacao*/
-        //pAutenticacao.registrar(prkeyCliente, certificado);
-        return true; /*retorna true se conseguir registrar*/
+        try {/*garantir que so o servidor abre*/
+            //enviando id do cliente cifrado com a chave publica do servidor para registrar.
+            byte[] idByte = CifradorRSA.codificar(this.id_cliente.getBytes(), pAutenticacao.getPuServidor());
+            Protocolo.ProtocolData dataToServer = new ProtocolData(idByte);
+            dataToServer.setMessage("REGISTRAR");
+            autout.writeObject(dataToServer);
+            pAutenticacao.leImprimeRespostaServidor(autin);
+
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return true;
     }
 
     private void encerrarServAut() {
