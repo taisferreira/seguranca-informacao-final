@@ -215,7 +215,7 @@ public class ProtocoloCliente {
     }
 
     /*Verificar autenticidade do id do servidor de arquivos*/
-    private boolean idEhAutentico(String id, PublicKey pukey) {
+    public boolean idEhAutentico(String id, PublicKey pukey) {
         /* 1. Busca chave publica do servidor arquivos no de autenticacao*/
         PublicKey chave = buscar_chave(id);
 
@@ -237,33 +237,33 @@ public class ProtocoloCliente {
     }
 
     public PublicKey buscar_chave(String id) {
-        PublicKey puid = null;
+        /*PublicKey puid = null;
         try {
-            /*Pede chave do id ao servidor de autenticacao*/
+            //Pede chave do id ao servidor de autenticacao
             byte[] bytesid = CifradorRSA.codificar(id.getBytes(), autenticador.getPuServidor());
             dataToServer = new ProtocolData(bytesid);
             dataToServer.setMessage("CHAVE");
             outAutenticacao.writeObject(dataToServer);
 
-            /* Se servidor de autenticacao tem chave, retorna a chave
-            Se não, retorna null*/
+            // Se servidor de autenticacao tem chave, retorna a chave
+            //Se não, retorna null
             dataFromServer = (ProtocolData) inAutenticacao.readObject();
             puid = dataFromServer.getKey();
 
-            if (dataFromServer.getStatus() != Autenticacao.IDNOTFOUND) {
+            if (dataFromServer.getStatus() == Autenticacao.IDNOTFOUND) {
                 System.out.println("Servidor de autenticação não achou " + id + ".");
             }
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        }*/
 
         //return puid;
         return this.puServidor; /*código de teste*/
     }
 
-    public boolean registrar(PrivateKey prServidor, X509Certificate cert) {
+    public boolean registrar(PrivateKey pr, X509Certificate cert) {
         /*Enviar "REGISTRAR" para servidor de autenticacao com o certificado*/
 
         /*Se servidor responder que já foi registrado retorna false
@@ -274,7 +274,7 @@ public class ProtocoloCliente {
 
     void encerrar_conexao(ObjectOutputStream autout, ObjectInputStream autin) {
         try {
-            dataToServer = new Protocolo.ProtocolData("SAIR");
+            dataToServer = new Protocolo.ProtocolData("Encerrando");
             dataToServer.setMessage("SAIR");
             autout.writeObject(dataToServer);
             leImprimeRespostaServidor(autin);

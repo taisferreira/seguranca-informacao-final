@@ -7,6 +7,7 @@ package armazemChaves;
 import Certificado.CertificadoX509Certificate;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.KeyPair;
@@ -46,7 +47,7 @@ public class ArmazemChaves {
                     fos.close();
                 } else {
                     fis = new FileInputStream(file);
-                    ks.load(fis, null);
+                    ks.load(fis, keyStorePassword.toCharArray());
                     fis.close();
                 }
 
@@ -64,23 +65,37 @@ public class ArmazemChaves {
     }
 
     public void guardaKeyPair(String id, String senha, KeyPair kp) {
-        try {
-            char[] senhaChar = null;
-            if (senha != null) {
-                senhaChar = senha.toCharArray();
+        {
+            FileOutputStream fos = null;
+            try {
+                char[] senhaChar = null;
+                if (senha != null) {
+                    senhaChar = senha.toCharArray();
+                }
+
+                /*guarda chave publica*/
+                X509Certificate cert = CertificadoX509Certificate.generateCertificate("CN=" + id, kp, -1, "MD5WithRSA");
+                ks.setCertificateEntry(id, cert);
+
+                /*guarda chave privada*/
+                X509Certificate[] chain = new X509Certificate[1];
+                chain[0] = cert;
+                ks.setKeyEntry(id, kp.getPrivate(), senhaChar, chain);
+                /*Atualiza arquivo da keystore no disco*/
+                fos = new FileOutputStream(this.file);
+                this.ks.store(fos, this.password.toCharArray());
+                fos.close();
+            } catch (NoSuchAlgorithmException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (CertificateException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (FileNotFoundException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (KeyStoreException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (IOException ex) {
+                    Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
             }
-            X509Certificate cert = CertificadoX509Certificate.generateCertificate("CN="+id, kp, -1, "MD5WithRSA");
-
-            /*Salvar chave pública*/
-            ks.setCertificateEntry(id, cert);
-
-            /*Salvar chave privada*/
-            X509Certificate [] chain = new X509Certificate[1];
-            chain[0] = cert;
-            ks.setKeyEntry(id, kp.getPrivate(), senhaChar, chain);
-            
-        } catch (KeyStoreException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -93,7 +108,7 @@ public class ArmazemChaves {
             }
         } catch (KeyStoreException ex) {
             Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
-        } 
+        }
         return null;
     }
 
@@ -123,6 +138,17 @@ public class ArmazemChaves {
                 senhaChar = senhasString.toCharArray();
             }
             ks.setKeyEntry(alias, skey, senhaChar, null);
+
+            /*Atualiza arquivo da keystore no disco*/
+            FileOutputStream fos = new FileOutputStream(this.file);
+            this.ks.store(fos, this.password.toCharArray());
+            fos.close();
+        } catch (NoSuchAlgorithmException ex) {
+            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (CertificateException ex) {
+            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
         } catch (KeyStoreException ex) {
             Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
         }

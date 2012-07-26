@@ -1,7 +1,5 @@
 package Cliente;
 
-import Cifrador.CifradorRSA;
-import Protocolo.ProtocolData;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -28,7 +26,7 @@ public class Cliente {
     private Socket autServerSocket = null;
     private ObjectOutputStream autout = null;
     private ObjectInputStream autin = null;
-    
+
     /*Servidor de arquivos escuta na porta 7000*/
     private final static String SERVERNAME = "localhost";
     private final static int SERVERPORT = 7000;
@@ -66,7 +64,7 @@ public class Cliente {
 
         this.protocolo = new ProtocoloCliente();
         this.pAutenticacao = new ProtocoloCliente();
-        
+
 
         try {
             /*Inicializa sockets e streams para comunicar com servidores*/
@@ -103,12 +101,12 @@ public class Cliente {
             in.close();
             serverSocket.close();
             encerrarServAut();
-            
+
             System.out.println("Client: Sucessfull exit!");
 
         } catch (IOException ex) {
             Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);
-        } 
+        }
 
     }
 
@@ -192,10 +190,10 @@ public class Cliente {
             try{
             skeyCliente = ((SecretKey) ks.getKey(id_cliente, senha.toCharArray()));
             }catch(KeyStoreException ex ){
-                
+
                 System.out.println("Senha errada! Digite novamente.");
                 carrega_chaves();
-                
+
             }catch(NoSuchAlgorithmException ex){
                 System.out.println("Senha errada! Digite novamente.");
                 carrega_chaves();
@@ -203,9 +201,9 @@ public class Cliente {
             catch(UnrecoverableKeyException ex){
                 System.out.println("Senha errada! Digite novamente.");
                 carrega_chaves();
-                
+
             }
-           
+
         /*
         Caso contrário, avisar que login não foi encontrado e perguntar se
          deseja registrar o login digitado:
@@ -244,13 +242,13 @@ public class Cliente {
                     pukeyCliente = (RSAPublicKey) kf.generatePublic(puspec);
                     //saves the keystore
                     ks.setKeyEntry(id_cliente, skeyCliente, senha.toCharArray(), null);
-                    
+
                     /*
                     Tem que salvar par de chaves no keystore
                     * ks.setKeyEntry(senha, , senha.toCharArray(), null);
                     */
-                    
-                    
+
+
                     FileOutputStream fos = new FileOutputStream(file);
                     //saves the keystore
                     ks.store(fos, senha.toCharArray());
@@ -264,30 +262,22 @@ public class Cliente {
         }
 
     }
-    
-    
-       public boolean registrar(String id, PublicKey puk)
+
+
+    public boolean registrar(String id, PublicKey puk)
     {
         /*Registrar id_cliente e chave publica no servidor de autenticacao*/
-        try {/*garantir que so o servidor abre*/
-            //enviando id do cliente cifrado com a chave publica do servidor para registrar.
-            byte [] idByte = CifradorRSA.codificar(this.id_cliente.getBytes(), pAutenticacao.getPuServidor());
-            Protocolo.ProtocolData dataToServer = new ProtocolData(idByte);
-            dataToServer.setMessage("REGISTRAR");
-            autout.writeObject(dataToServer);
-            pAutenticacao.leImprimeRespostaServidor(autin);
-        } catch (IOException ex) {
-            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        //pAutenticacao.registrar(prkeyCliente, certificado);
         return true; /*retorna true se conseguir registrar*/
     }
+
     private void encerrarServAut() {
         try {
             Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData("SAIR");
             dataToServer.setMessage("SAIR");
             autout.writeObject(dataToServer);
             pAutenticacao.leImprimeRespostaServidor(autin);
-            
+
             autout.close();
             autin.close();
             autServerSocket.close();

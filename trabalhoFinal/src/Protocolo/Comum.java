@@ -1,15 +1,9 @@
 package Protocolo;
 
 import armazemChaves.ArmazemChaves;
-import java.io.BufferedOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.crypto.SecretKey;
 
 public class Comum {
@@ -32,32 +26,23 @@ public class Comum {
     protected PrivateKey prServidor;
     protected X509Certificate cert;
     protected SecretKey skeyServidor;
-    protected String idServidor = "servidor";
-    protected String password = "servidor";
+    protected String idServidor ;
+    protected String password ;
     protected ArmazemChaves chaves;
-    protected String arquivoKeyStore = "/home/tais/serverKeyStore.ks";
-    protected static String logfile = "D:\\logs\\log.txt";
-    
-    
-    public Comum() {
-        /*Cria ou carrega a keystore onde armazenou seu par de chaves.*/
-        chaves = new ArmazemChaves(arquivoKeyStore, password);
+    protected String arquivoKeyStore;
 
-        /*Se ainda não tem um par de chaves, cria e salva na keystore*/
-        this.cert = chaves.pegaCertificado(idServidor);
-        if(cert == null){
-            java.security.KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
-            this.puServidor = kp.getPublic();
-            this.prServidor = kp.getPrivate();
-            chaves.guardaKeyPair(idServidor, password, kp);
-            this.cert = chaves.pegaCertificado(idServidor);
-            /*chaves.guardaPublicKey(idServidor, puServidor, password);
-            chaves.guardaPrivateKey(idServidor, prServidor, password);*/
-        }
-        else{
-            this.puCliente = cert.getPublicKey();
-            this.prServidor = chaves.pegaPrivateKey(idServidor, password);
-        }
+    public Comum() {
+        idServidor = "servidor";
+        password = "servidor";
+        arquivoKeyStore = "/home/tais/serverKeyStore.ks";
+        init();
+    }
+
+    public Comum(String nome, String senha, String arquivoKS) {
+        idServidor = nome;
+        password = senha;
+        arquivoKeyStore = arquivoKS;
+        init();
     }
 
     public ProtocolData processInput(ProtocolData theInput) {
@@ -79,6 +64,7 @@ public class Comum {
                     puCliente = theInput.getKey();
 
                     /* 2. Envia a sua chave pública*/
+                    //System.out.println("Chave: "+puServidor);
                     theOutput = new ProtocolData(puServidor);
 
 
@@ -140,7 +126,7 @@ public class Comum {
         //Cliente está enviando um dado
         if (sMessage.equalsIgnoreCase("ENVIAR")) {
             theOutput = new ProtocolData("Dados recebidos com sucesso!");
-            
+
             /*Armazenar log*/
         } else {
             theOutput = new ProtocolData("Use\n\"ENVIAR\" para enviar "
@@ -153,17 +139,27 @@ public class Comum {
     protected boolean idEhAutentico(String idCliente, PublicKey puCliente) {
         return true;
     }
-    //implementação temporária
-    protected static void escreveLog(String log){
-        try {
-            OutputStream out = new BufferedOutputStream(new FileOutputStream(logfile));
-            out.write(log.getBytes());
-            
-        } catch (IOException ex) {
-            Logger.getLogger(Comum.class.getName()).log(Level.SEVERE, null, ex);
+
+    protected void init() {
+        /*Cria ou carrega a keystore onde armazenou seu par de chaves.*/
+        chaves = new ArmazemChaves(arquivoKeyStore, password);
+
+        /*Se ainda não tem um par de chaves, cria e salva na keystore*/
+        this.cert = chaves.pegaCertificado(idServidor);
+        if(cert == null){
+            java.security.KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
+            puServidor = kp.getPublic();
+            prServidor = kp.getPrivate();
+            chaves.guardaKeyPair(idServidor, password, kp);
+            cert = chaves.pegaCertificado(idServidor);
+            System.out.println("Criando chave para "+this.idServidor+"...");
         }
-        
-        
+        else{
+            this.puServidor = cert.getPublicKey();
+            this.prServidor = chaves.pegaPrivateKey(idServidor, password);
+            System.out.println("PrivateKey: "+this.prServidor);
+            System.out.println("Chave de "+this.idServidor+" buscada com sucesso!");
+        }
     }
 }
 
