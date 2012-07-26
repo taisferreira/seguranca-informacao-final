@@ -16,7 +16,7 @@ public class TransferenciaArquivos extends Comum {
     private final static int AUTENTPORT = 6000;
     Socket autServerSocket;
     ObjectOutputStream autout;
-    ObjectInputStream autin;
+    ObjectInputStream autin;    
     ProtocoloCliente pc;
 
     public TransferenciaArquivos() {
@@ -45,8 +45,8 @@ public class TransferenciaArquivos extends Comum {
 
         //Cliente está enviando um dado
         if (sMessage.equalsIgnoreCase("ENVIAR")) {
-            String nomeArquivo = "FAKE";
-
+            String nomeArquivo = "FAKE";            
+            
             /*
             1. Le nome e conteudo do arquivo enviados pelo cliente
 

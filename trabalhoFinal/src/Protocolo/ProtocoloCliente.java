@@ -2,6 +2,7 @@ package Protocolo;
 
 import Cifrador.CifradorRSA;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.ObjectInputStream;
@@ -12,6 +13,7 @@ import java.security.cert.X509Certificate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
+import Cifrador.CifradorHASH;
 
 public class ProtocoloCliente {
 
@@ -105,6 +107,18 @@ public class ProtocoloCliente {
                     leImprimeRespostaServidor(in);
                     fecharConexao = true;
                 } else if (mensagem.equalsIgnoreCase("ENVIAR")) {
+                    byte[] hashCifrado;
+                    String texto = "";
+                    System.out.println("Digite caminho do arquivo(com extensao): ");        
+                    String caminho = stdIn.readLine();
+                    File arquivo = new File("" + caminho);
+                    byte[] arqHash = CifradorHASH.hashArq(arquivo.toString().getBytes());
+                    hashCifrado = CifradorRSA.codificar(arqHash, puCliente);
+                    texto = (arquivo + "" + hashCifrado).trim();                    
+                    byte[] arqEnviar = CifradorRSA.codificar(texto.getBytes(), puServidor);
+                    Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData(arqEnviar);
+                    dataToServer.setMessage("ENVIAR");
+                    out.writeObject(dataToServer);      
                     /*
                     1. Pede nome do arquivo em disco a ser transferido
                     2. gera hash do conteudo do arquivo e criptografa com a
