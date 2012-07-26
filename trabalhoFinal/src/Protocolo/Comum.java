@@ -1,9 +1,15 @@
 package Protocolo;
 
 import armazemChaves.ArmazemChaves;
+import java.io.BufferedOutputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.crypto.SecretKey;
 
 public class Comum {
@@ -30,7 +36,9 @@ public class Comum {
     protected String password = "servidor";
     protected ArmazemChaves chaves;
     protected String arquivoKeyStore = "/home/tais/serverKeyStore.ks";
-
+    protected static String logfile = "D:\\logs\\log.txt";
+    
+    
     public Comum() {
         /*Cria ou carrega a keystore onde armazenou seu par de chaves.*/
         chaves = new ArmazemChaves(arquivoKeyStore, password);
@@ -144,6 +152,18 @@ public class Comum {
     /*Comportamento padrão: não verifica autenticidade*/
     protected boolean idEhAutentico(String idCliente, PublicKey puCliente) {
         return true;
+    }
+    //implementação temporária
+    protected static void escreveLog(String log){
+        try {
+            OutputStream out = new BufferedOutputStream(new FileOutputStream(logfile));
+            out.write(log.getBytes());
+            
+        } catch (IOException ex) {
+            Logger.getLogger(Comum.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+        
     }
 }
 

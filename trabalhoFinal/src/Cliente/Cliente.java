@@ -1,5 +1,7 @@
 package Cliente;
 
+import Cifrador.CifradorRSA;
+import Protocolo.ProtocolData;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
@@ -264,13 +266,21 @@ public class Cliente {
     }
     
     
-    public boolean registrar(String id, PublicKey puk)
+       public boolean registrar(String id, PublicKey puk)
     {
         /*Registrar id_cliente e chave publica no servidor de autenticacao*/
-        //pAutenticacao.registrar(prkeyCliente, certificado);
+        try {/*garantir que so o servidor abre*/
+            //enviando id do cliente cifrado com a chave publica do servidor para registrar.
+            byte [] idByte = CifradorRSA.codificar(this.id_cliente.getBytes(), pAutenticacao.getPuServidor());
+            Protocolo.ProtocolData dataToServer = new ProtocolData(idByte);
+            dataToServer.setMessage("REGISTRAR");
+            autout.writeObject(dataToServer);
+            pAutenticacao.leImprimeRespostaServidor(autin);
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
         return true; /*retorna true se conseguir registrar*/
     }
-
     private void encerrarServAut() {
         try {
             Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData("SAIR");
