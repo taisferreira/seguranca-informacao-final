@@ -7,6 +7,8 @@ import java.io.ObjectOutputStream;
 import java.net.Socket;
 
 import Protocolo.Comum;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ThreadServidor extends Thread {
     protected ObjectOutputStream out = null;
@@ -49,9 +51,18 @@ public class ThreadServidor extends Thread {
             System.out.println("Encerrando conexão com o cliente.");
 
         } catch (IOException e) {
-            e.printStackTrace();
+            //e.printStackTrace();
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
+        }finally{
+            try {
+                out.close();
+                in.close();
+                socket.close();
+                System.out.println("Encerrando conexão com o cliente.");
+            } catch (IOException ex) {
+                Logger.getLogger(ThreadServidor.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
     }
 

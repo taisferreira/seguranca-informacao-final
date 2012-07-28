@@ -22,6 +22,8 @@ public class ProtocoloCliente {
     private PublicKey puCliente;
     private PrivateKey prCliente;
     private PublicKey puServidor;
+    private X509Certificate certCliente;
+    private X509Certificate certServidor;
     private String idCliente;
     private String idServidor;
     private ProtocolData dataToServer;
@@ -29,6 +31,7 @@ public class ProtocoloCliente {
     private boolean naoConectado = true;
     private boolean fecharConexao = false;
     private ProtocoloCliente autenticador;
+    private SecretKey chaveSessao;
 
     public boolean isFecharConexao() {
         return fecharConexao;
@@ -45,9 +48,17 @@ public class ProtocoloCliente {
     private ObjectOutputStream outAutenticacao;
     private ObjectInputStream inAutenticacao;
 
-    public ProtocoloCliente(PublicKey pucliente, PrivateKey prcliente,
+    /*public ProtocoloCliente(PublicKey pucliente, PrivateKey prcliente,
+    SecretKey skeycliente, String idcliente) {
+    this.puCliente = pucliente;
+    this.prCliente = prcliente;
+    this.idCliente = idcliente;
+    this.skeyCliente = skeycliente;
+    }*/
+    public ProtocoloCliente(X509Certificate certificado, PrivateKey prcliente,
             SecretKey skeycliente, String idcliente) {
-        this.puCliente = pucliente;
+        this.certCliente = certificado;
+        this.puCliente = certificado.getPublicKey();
         this.prCliente = prcliente;
         this.idCliente = idcliente;
         this.skeyCliente = skeycliente;
@@ -109,16 +120,16 @@ public class ProtocoloCliente {
                 } else if (mensagem.equalsIgnoreCase("ENVIAR")) {
                     byte[] hashCifrado;
                     String texto = "";
-                    System.out.println("Digite caminho do arquivo(com extensao): ");        
+                    System.out.println("Digite caminho do arquivo(com extensao): ");
                     String caminho = stdIn.readLine();
                     File arquivo = new File("" + caminho);
                     byte[] arqHash = CifradorHASH.hashArq(arquivo.toString().getBytes());
                     hashCifrado = CifradorRSA.codificar(arqHash, puCliente);
-                    texto = (arquivo + "" + hashCifrado).trim();                    
+                    texto = (arquivo + "" + hashCifrado).trim();
                     byte[] arqEnviar = CifradorRSA.codificar(texto.getBytes(), puServidor);
                     Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData(arqEnviar);
                     dataToServer.setMessage("ENVIAR");
-                    out.writeObject(dataToServer);      
+                    out.writeObject(dataToServer);
                     /*
                     1. Pede nome do arquivo em disco a ser transferido
                     2. gera hash do conteudo do arquivo e criptografa com a
@@ -158,7 +169,7 @@ public class ProtocoloCliente {
     /*1. Enviar chave pública para o servidor*/
     private void init_handshaking(ObjectOutputStream out, String mensagem) {
         try {
-            dataToServer = new ProtocolData(this.puCliente);
+            dataToServer = new ProtocolData(this.certCliente);
             dataToServer.setMessage(mensagem);
             out.writeObject(dataToServer);
         } catch (IOException ex) {
@@ -170,7 +181,9 @@ public class ProtocoloCliente {
     private void lerServPUKEY(ObjectInputStream in) {
         try {
             dataFromServer = (ProtocolData) in.readObject();
-            this.puServidor = dataFromServer.getKey();
+            this.certServidor = dataFromServer.getCertificado();
+            this.puServidor = certServidor.getPublicKey();
+            //System.out.println("Chave que "+this.idCliente+" recebeu do servidor: "+this.puServidor);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ClassNotFoundException ex) {
@@ -250,8 +263,18 @@ public class ProtocoloCliente {
         this.autenticador = pAutenticao;
     }
 
+    public void setAutenticador(ObjectInputStream in, ObjectOutputStream out,
+            ProtocoloCliente pAutenticao) {
+        this.outAutenticacao = out;
+        this.inAutenticacao = in;
+        this.autenticador = pAutenticao;
+
+    }
+
     public PublicKey buscar_chave(String id) {
-        /*PublicKey puid = null;
+        System.out.println("busca_chave(" + id + ")");
+        PublicKey puid = null;
+        X509Certificate certid;
         try {
             //Pede chave do id ao servidor de autenticacao
             byte[] bytesid = CifradorRSA.codificar(id.getBytes(), autenticador.getPuServidor());
@@ -262,31 +285,25 @@ public class ProtocoloCliente {
             // Se servidor de autenticacao tem chave, retorna a chave
             //Se não, retorna null
             dataFromServer = (ProtocolData) inAutenticacao.readObject();
-            puid = dataFromServer.getKey();
+            certid = dataFromServer.getCertificado();
 
-            if (dataFromServer.getStatus() == Autenticacao.IDNOTFOUND) {
+            if (certid == null) {
                 System.out.println("Servidor de autenticação não achou " + id + ".");
+            } else {
+                System.out.println("Certificado de " + id + " encontrado!");
+                puid = certid.getPublicKey();
             }
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
-        }*/
+        }
 
-        //return puid;
-        return this.puServidor; /*código de teste*/
+        return puid;
+        //return this.puServidor; /*código de teste*/
     }
 
-    public boolean registrar(PrivateKey pr, X509Certificate cert) {
-        /*Enviar "REGISTRAR" para servidor de autenticacao com o certificado*/
-
-        /*Se servidor responder que já foi registrado retorna false
-        senão retorna true*/
-
-        return true; /*retorna true quando consegue se registrar*/
-    }
-
-    void encerrar_conexao(ObjectOutputStream autout, ObjectInputStream autin) {
+    public void encerrar_conexao(ObjectOutputStream autout, ObjectInputStream autin) {
         try {
             dataToServer = new Protocolo.ProtocolData("Encerrando");
             dataToServer.setMessage("SAIR");

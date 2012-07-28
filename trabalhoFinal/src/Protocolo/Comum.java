@@ -30,13 +30,15 @@ public class Comum {
     protected String idCliente = null;
     protected PublicKey puServidor;
     protected PrivateKey prServidor;
-    protected X509Certificate cert;
+    protected X509Certificate certServidor;
+    protected X509Certificate certCliente;
     protected SecretKey skeyServidor;
     protected String idServidor ;
     protected String password ;
     protected ArmazemChaves chaves;
     protected String arquivoKeyStore;
     protected static String logfile = "D:\\logs\\log.txt";
+    boolean registrarChave = false;
 
     public Comum() {
         idServidor = "servidor";
@@ -68,11 +70,13 @@ public class Comum {
                 sMessage = theInput.getMessage();
                 if (sMessage.equalsIgnoreCase("CONECTAR")) {
                     /*1. Recebe chave pública do cliente*/
-                    puCliente = theInput.getKey();
+                    certCliente = theInput.getCertificado();
+                    puCliente = certCliente.getPublicKey();
+                    //System.out.println("PublicKeyCliente: "+puCliente);
 
                     /* 2. Envia a sua chave pública*/
-                    //System.out.println("Chave: "+puServidor);
-                    theOutput = new ProtocolData(puServidor);
+                    //System.out.println("Chave que servidor está enviando: "+puServidor);
+                    theOutput = new ProtocolData(certServidor);
 
 
                     /*Armazenar log*/
@@ -111,13 +115,8 @@ public class Comum {
             case CONNECTED:
                 sMessage = theInput.getMessage();
 
-                if (sMessage.equalsIgnoreCase("SAIR")) {
-                    theOutput = new ProtocolData("Encerrando...");
-                    state = EXIT;
-                    /*Armazenar log*/
-                } else {
-                    processa_mensagem(theInput);
-                }
+                processa_mensagem(theInput);
+                
                 break;
 
         }
@@ -131,7 +130,12 @@ public class Comum {
         sMessage = theInput.getMessage();
 
         //Cliente está enviando um dado
-        if (sMessage.equalsIgnoreCase("ENVIAR")) {
+        if (sMessage.equalsIgnoreCase("SAIR")) {
+                    theOutput = new ProtocolData("Encerrando...");
+                    state = EXIT;
+                    /*Armazenar log*/
+
+        } else if (sMessage.equalsIgnoreCase("ENVIAR")) {
             theOutput = new ProtocolData("Dados recebidos com sucesso!");
 
             /*Armazenar log*/
@@ -152,19 +156,20 @@ public class Comum {
         chaves = new ArmazemChaves(arquivoKeyStore, password);
 
         /*Se ainda não tem um par de chaves, cria e salva na keystore*/
-        this.cert = chaves.pegaCertificado(idServidor);
-        if(cert == null){
+        this.certServidor = chaves.pegaCertificado(idServidor);
+        if(certServidor == null){
             java.security.KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
             puServidor = kp.getPublic();
             prServidor = kp.getPrivate();
             chaves.guardaKeyPair(idServidor, password, kp);
-            cert = chaves.pegaCertificado(idServidor);
+            certServidor = chaves.pegaCertificado(idServidor);
             System.out.println("Criando chave para "+this.idServidor+"...");
+            registrarChave = true;
         }
         else{
-            this.puServidor = cert.getPublicKey();
+            this.puServidor = certServidor.getPublicKey();
             this.prServidor = chaves.pegaPrivateKey(idServidor, password);
-            System.out.println("PrivateKey: "+this.prServidor);
+            //System.out.println("Comum publicKey: "+this.puServidor);
             System.out.println("Chave de "+this.idServidor+" buscada com sucesso!");
         }
     }

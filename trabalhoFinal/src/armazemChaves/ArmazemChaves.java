@@ -74,7 +74,7 @@ public class ArmazemChaves {
                 }
 
                 /*guarda chave publica*/
-                X509Certificate cert = CertificadoX509Certificate.generateCertificate("CN=" + id, kp, -1, "MD5WithRSA");
+                X509Certificate cert = CertificadoX509Certificate.generateCertificate("CN=" + id, kp, 1000, "MD5WithRSA");
                 ks.setCertificateEntry(id, cert);
 
                 /*guarda chave privada*/

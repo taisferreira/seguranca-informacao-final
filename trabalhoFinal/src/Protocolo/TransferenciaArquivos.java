@@ -1,5 +1,6 @@
 package Protocolo;
 
+import Cifrador.CifradorRSA;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -14,28 +15,25 @@ public class TransferenciaArquivos extends Comum {
 
     private final static String AUTENNAME = "localhost";
     private final static int AUTENTPORT = 6000;
-    Socket autServerSocket;
-    ObjectOutputStream autout;
-    ObjectInputStream autin;    
-    ProtocoloCliente pc;
+    private Socket autServerSocket;
+    private ObjectOutputStream autout;
+    private ObjectInputStream autin;
+    private ProtocoloCliente pcArquivos;
 
     public TransferenciaArquivos() {
-        super("TransferenciaArquivos", "servidor","/home/tais/kstoreArquivos.ks");
-
-
-        /*
-        Verifica se está registrado no servidor de autenticação
-        ou se registra no servidor de autenticacao.
-         */
-        /*Não pode usar ehIdentico de protocolo cliente para validar o servidor
-        vai dar erro!
-        O ehAutentico é só pra validar clientes o proprio servido nem pensar!*/
-        /*if (false == registrar()) {
-        System.out.println("Servidor já foi registrado!");
+        super("TransferenciaArquivos", "servidor", "kstoreArquivos.ks");
+        abrirSocketServAutenticacao();
+        pcArquivos = new ProtocoloCliente();
+        pcArquivos.leImprimeRespostaServidor(autin);
+        if (this.pcArquivos.isNaoConectado()) {
+            pcArquivos = new ProtocoloCliente(this.certServidor, this.prServidor,
+                    this.skeyServidor, this.idServidor);
+            pcArquivos.do_handshaking(autout, autin);
         }
-        else{
-        System.out.println("Servidor de arquivos foi registrado ...");
-        }*/
+        //if(registrarChave){
+        //registrar nova chave no servidor
+        registrar();
+        //}
     }
 
     @Override
@@ -45,8 +43,8 @@ public class TransferenciaArquivos extends Comum {
 
         //Cliente está enviando um dado
         if (sMessage.equalsIgnoreCase("ENVIAR")) {
-            String nomeArquivo = "FAKE";            
-            
+            String nomeArquivo = "FAKE";
+
             /*
             1. Le nome e conteudo do arquivo enviados pelo cliente
 
@@ -83,6 +81,10 @@ public class TransferenciaArquivos extends Comum {
              */
             String nomeArquivo = "FAKE";
             theOutput = new ProtocolData("Enviei o arquivo " + nomeArquivo);
+        } else if (sMessage.equalsIgnoreCase("SAIR")) {
+                theOutput = new ProtocolData("Encerrando...");
+                state = EXIT;
+                /*Armazenar log*/
         } else {
             theOutput = new ProtocolData("Use:\n\"ENVIAR\" para enviar "
                     + "arquivo para o servidor\n\"BUSCAR\" para buscar"
@@ -97,42 +99,47 @@ public class TransferenciaArquivos extends Comum {
     /*Verificar autenticidade do idCliente*/
     protected boolean idEhAutentico(String idCliente, PublicKey puCliente) {
         //1. Busca chave publica do cliente no servidor de autenticacao
-        //PublicKey pu = pc.buscar_chave(idCliente);
+        pcArquivos.setAutenticador(autin, autout, pcArquivos);
+        PublicKey pu = pcArquivos.buscar_chave(idCliente);
 
 
         // 2. compara chaves: retorna false se não for igual e true se for igual
-        /*if(pu != null && pu.equals(puCliente)){
-        System.out.println(idCliente+" foi registrado no SAut.");
-        return true;
+        if(pu != null && pu.equals(puCliente)){
+          System.out.println(idCliente+" é confiável!");
+          return true;
         }
-        System.out.println(idCliente+" não está registrado no SAut.");*/
-        //return false;
-        return true;/*o código acima contém bugs*/
+        System.out.println(idCliente+" não é confiável.");
+        return false;
+        //return true;/*o código acima contém bugs*/
     }
 
-    private boolean registrar() {
+    private void registrar() {
+        /*Registrar id_cliente e chave publica no servidor de autenticacao*/
+        try {/*garantir que so o servidor abre*/
+            //enviando id do cliente cifrado com a chave publica do servidor para registrar.
+            byte[] idByte = CifradorRSA.codificar(idServidor.getBytes(), pcArquivos.getPuServidor());
+            Protocolo.ProtocolData dataToServer = new ProtocolData(idByte);
+            dataToServer.setMessage("REGISTRAR");
+            autout.writeObject(dataToServer);
+            pcArquivos.leImprimeRespostaServidor(autin);
+
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        registrarChave = false;
+    }
+
+    private void abrirSocketServAutenticacao() {
         try {
-            /*Conectar no servidor de autenticação;
-            isso provoca a criação de uma thread Autenticacao*/
             autServerSocket = new Socket(AUTENNAME, AUTENTPORT);
             autout = new ObjectOutputStream(autServerSocket.getOutputStream());
             autin = new ObjectInputStream(autServerSocket.getInputStream());
-            pc = new ProtocoloCliente(puServidor, prServidor, skeyServidor, idServidor);
-
-            //conecta no servidor de autenticacao
-            pc.do_handshaking(autout, autin);
-
-            //pede para se registrar
-            pc.registrar(prServidor, cert);
-
-            //encerra conexão
-            pc.encerrar_conexao(autout, autin);
-            autServerSocket.close();
-        } catch (UnknownHostException ex) {
-            Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-            Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (UnknownHostException e) {
+            System.err.println(AUTENNAME + " : Unkown Host");
+            System.exit(1);
+        } catch (IOException e) {
+            System.err.println(AUTENNAME + " : I/O Error");
+            System.exit(1);
         }
-        return true;
     }
 }

@@ -9,8 +9,8 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
-import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -24,14 +24,14 @@ public class Autenticacao extends Comum {
 
     public Autenticacao() {
         //super();
-        super("Autenticacao", "autenticacao", "/home/tais/kstoreAutenticacao.ks");
+        super("Autenticacao", "autenticacao", "kstoreAutenticacao.ks");
         /* cria ou carrega a key store usada para armazenar as chaves públicas
         de quem se registrou.
          */
         try {
             //inicializa keystore e local do keystore
             ks = KeyStore.getInstance("JCEKS");
-            keyStoreFile = new File("D:\\key\\autenticacaoPU.keystore");
+            keyStoreFile = new File("autenticacaoPU.keystore");
             if (!keyStoreFile.exists()) {
                 //inicializa um keystore vazio
                 ks.load(null, null);
@@ -61,75 +61,60 @@ public class Autenticacao extends Comum {
         String sMessage;
         sMessage = theInput.getMessage();
 
-        PublicKey pu = null;
-        byte[] idByte = theInput.getBytes();
-        String idAVerificar = new String(CifradorRSA.decodificar(idByte, prServidor));
+        X509Certificate cert = null;
 
+        if (sMessage.equalsIgnoreCase("SAIR")) {
+                    theOutput = new ProtocolData("Encerrando...");
+                    state = EXIT;
+                    /*Armazenar log*/
 
-        if (sMessage.equalsIgnoreCase("REGISTRAR")) {
-            /*
-            1. Verifica se cliente já foi registrado.
-
-            2. Se cliente não foi registrado insere na keystore seu id e sua
-            chave publica
-
-            3. Se cliente já foi registrado, envia mensagem de erro;
-
-            4. Armazena log
-             */
-
-            try {
-                if (!ks.isKeyEntry(idAVerificar)) {
-                    super.state = LOGINERROR;
-                    theOutput = new ProtocolData("Cliente já existe!");
-                } else {
-                    pu = theInput.getKey();
-                    ks.setKeyEntry(idAVerificar, pu.getEncoded(), null);
-                    state = CONNECTED;
-                    theOutput = new ProtocolData("Cliente registrado!");
-
+        } else if (sMessage.equalsIgnoreCase("REGISTRAR")) {
+            {
+                FileOutputStream fos = null;
+                byte[] idByte = theInput.getBytes();
+                String idAVerificar = new String(CifradorRSA.decodificar(idByte, prServidor));
+                try {
+                    if (ks.containsAlias(idAVerificar)) {
+                        state = CONNECTED;
+                        theOutput = new ProtocolData(idAVerificar + " já existe!");
+                    } else {
+                        //pu = theInput.getKey();//Servidor já tem a chave salva, pegou no handshking
+                        cert = this.certCliente;
+                        System.out.println("Registrando "+idAVerificar/*+"com certificado:\n"+cert*/);
+                        ks.setCertificateEntry(idAVerificar, cert);
+                        //ks.setKeyEntry(idAVerificar, pu.getEncoded(), null);
+                        fos = new FileOutputStream(this.keyStoreFile);
+                        ks.store(fos, this.password.toCharArray());
+                        fos.close();
+                        state = CONNECTED;
+                        theOutput = new ProtocolData(idAVerificar + " registrado!");
+                    }
+                } catch (IOException ex) {
+                    Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (NoSuchAlgorithmException ex) {
+                    Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (CertificateException ex) {
+                    Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (KeyStoreException ex) {
+                    Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
                 }
-            } catch (KeyStoreException ex) {
-                Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
             }
         } else if (sMessage.equalsIgnoreCase("CHAVE")) {
-            // 1. verifica se tem entrada na key store para o id especificado.
-            /*PublicKey purecebida = null;
-
-            byte[] dados = theInput.getBytes();
-            dados = Cifrador.CifradorRSA.decodificar(dados, prServidor);
-            String id = new String(dados);
-
-            /* 2. Se tem, envia a chave encontrada.*/
-            /*Tirar comentários quando esta classe tiver sua keystore implementada.
-            Até lá qualquer id vai devolver chave==null*/
-            /*if (/*this.keystore.containsAlias(cid)*//*true) {
-            /*
-            purecebida = (PublicKey) this.keystore.getKey(id, keyStorePassword)
-             */
-            /* theOutput = new ProtocolData(purecebida);
-            state = CONNECTED;
-            }
-            else{/* 3. Se não tem, envia aviso de chave não encontrada.*/
-            /* theOutput = new ProtocolData(purecebida);
-            state = IDNOTFOUND;
-            }
-
-            /* 4. Armazena log */
-
+            /* 1. verifica se tem entrada na key store para o id especificado.
+            2. Se tem, envia a chave encontrada.
+            3. Se não tem, envia aviso de chave não encontrada.*/
+            byte[] idByte = theInput.getBytes();
+            String idAVerificar = new String(CifradorRSA.decodificar(idByte, prServidor));
             try {
-                if (ks.isKeyEntry(idAVerificar)) {
-                    pu = (PublicKey) this.ks.getKey(idAVerificar, keyStorePassword);
-                    theOutput = new ProtocolData(pu);
-                    state = CONNECTED;
+                if (ks.containsAlias(idAVerificar)) {
+                    cert = (X509Certificate) ks.getCertificate(idAVerificar);
+                    System.out.println("Enviando certificado de "+idAVerificar);
+                    theOutput = new ProtocolData(cert);
                 } else {
-                    theOutput = new ProtocolData("chave não encontrada");
-                    state = IDNOTFOUND;
+                    theOutput = new ProtocolData(cert);
+                    System.out.println("Certificado de "+idAVerificar+" não encontrado!");
                 }
-            } catch (NoSuchAlgorithmException ex) {
-                Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
-            } catch (UnrecoverableKeyException ex) {
-                Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
+                state = CONNECTED;
             } catch (KeyStoreException ex) {
                 Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -140,14 +125,12 @@ public class Autenticacao extends Comum {
                     + "\n\"SAIR\" para encenrrar a conexao");
             super.state = CONNECTED;
         }
-        escreveLog(idAVerificar+" "+sMessage+" "+ state +" "+theOutput);
+        /*4. Armazena log*/
+        escreveLog(this.idCliente+" "+sMessage+" "+ state +" "+theOutput);
     }
 
     @Override
     protected boolean idEhAutentico(String id, PublicKey pu) {
-        /*Verificar autenticidade do id
-        1. Busca chave publica do id na keystore
-        2. compara chaves: retorna false se não for igual e true se for igual*/
         return true;
     }
 }

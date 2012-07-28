@@ -4,7 +4,7 @@ import Protocolo.TransferenciaArquivos;
 import java.net.Socket;
 
 public class ThreadServidorArquivos extends ThreadServidor {
-
+  
     public ThreadServidorArquivos(Socket socket) {
         super(socket);
     }

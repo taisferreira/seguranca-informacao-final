@@ -7,17 +7,12 @@ import java.net.UnknownHostException;
 
 import Protocolo.ProtocoloCliente;
 import java.io.*;
-import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.CertificateException;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
+import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.RSAPrivateKeySpec;
-import java.security.spec.RSAPublicKeySpec;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 
 public class Cliente {
@@ -39,17 +34,19 @@ public class Cliente {
     private KeyStore ks;
     private File file;
     private BufferedReader stdIn = new BufferedReader(new InputStreamReader(System.in));
-    private SecretKey skeyCliente = null;
-    private PrivateKey prkeyCliente = null;
-    private PublicKey pukeyCliente = null;
-    private String id_cliente = null;
+    private SecretKey skeyCliente;
+    private PrivateKey prkeyCliente;
+    private PublicKey pukeyCliente;
+    private X509Certificate certCliente;
+    private String idCliente = null;
     private String senha = null;
     private ProtocoloCliente protocolo;
     private ProtocoloCliente pAutenticacao;
+    private boolean registrarChave = false;
 
     public Cliente() throws IOException, KeyStoreException, NoSuchAlgorithmException, UnrecoverableKeyException, CertificateException, InvalidKeySpecException {
-        /*Inicio codigo de teste*/
-        try {/*Apagar quando carrega_chaves estiver implementado*/
+        /*Inicio codigo de teste
+        try {//Apagar quando carrega_chaves estiver implementado
             java.security.KeyPairGenerator kpg = java.security.KeyPairGenerator.getInstance("RSA");
             kpg.initialize(2048);
             java.security.KeyPair kp = kpg.generateKeyPair();
@@ -68,25 +65,36 @@ public class Cliente {
 
         try {
             /*Inicializa sockets e streams para comunicar com servidores*/
-            initStreams();
+            initStreamsServAut();
 
-            /*Lê e imprime a primeira mensagem enviada pelo servidor*/
-            this.protocolo.leImprimeRespostaServidor(in);
+            /*Lê e imprime a primeira mensagem enviada pelo servidor de Autenticacao*/
             this.pAutenticacao.leImprimeRespostaServidor(autin);
 
             while (!this.protocolo.isFecharConexao()) {
                 if (this.protocolo.isNaoConectado()) {
                     System.out.println("digite seu login: ");
-                    this.id_cliente = stdIn.readLine();
+                    this.idCliente = stdIn.readLine();
 
                     carrega_chaves();
 
                     /*reinicia protocolo com as chaves carregadas*/
-                    this.protocolo = new ProtocoloCliente(this.pukeyCliente, this.prkeyCliente, this.skeyCliente, this.id_cliente);
-                    this.pAutenticacao = new ProtocoloCliente(this.pukeyCliente, this.prkeyCliente, this.skeyCliente, this.id_cliente);
+                    this.protocolo = new ProtocoloCliente(this.certCliente, this.prkeyCliente, this.skeyCliente, this.idCliente);
+                    this.pAutenticacao = new ProtocoloCliente(this.certCliente, this.prkeyCliente, this.skeyCliente, this.idCliente);
 
                     /*Conectando no servidor de autenticacao*/
                     this.pAutenticacao.do_handshaking(autout, autin);
+
+                    /*Se registra no servidor de Autenticacao*/
+                    if(this.registrarChave){
+                        registrar();
+                        this.registrarChave = false;
+                    }
+                    
+                    /*Abre comunicação com servidor de arquivos*/
+                    initStreamsServArq();
+
+                    /*lê primeiro dado enviado pelo servidor de arquivos*/
+                    this.protocolo.leImprimeRespostaServidor(in);
 
                     /*Conectando no servidor de arquivos*/
                     this.protocolo.usarAutenticacao(this.autin, this.autout, this.pAutenticacao);
@@ -114,7 +122,7 @@ public class Cliente {
         new Cliente();
     }
 
-    private void initStreams() {
+    private void initStreamsServArq() {
         try {
             serverSocket = new Socket(SERVERNAME, SERVERPORT);
             out = new ObjectOutputStream(serverSocket.getOutputStream());
@@ -126,19 +134,6 @@ public class Cliente {
             System.err.println(SERVERNAME + " : I/O Error");
             System.exit(1);
         }
-
-        try {
-            autServerSocket = new Socket(AUTENNAME, AUTENTPORT);
-            autout = new ObjectOutputStream(autServerSocket.getOutputStream());
-            autin = new ObjectInputStream(autServerSocket.getInputStream());
-        } catch (UnknownHostException e) {
-            System.err.println(AUTENNAME + " : Unkown Host");
-            System.exit(1);
-        } catch (IOException e) {
-            System.err.println(AUTENNAME + " : I/O Error");
-            System.exit(1);
-        }
-
     }
 
     private void carrega_keystore() throws KeyStoreException, IOException, NoSuchAlgorithmException, CertificateException {
@@ -184,11 +179,16 @@ public class Cliente {
          */
 
 
-        if (ks.isKeyEntry(id_cliente)) {
+        if (ks.isKeyEntry(idCliente+".skey")) {
             System.out.println("Digite sua senha: ");
             senha = stdIn.readLine();
+
             try {
-                skeyCliente = ((SecretKey) ks.getKey(id_cliente, senha.toCharArray()));
+                skeyCliente = ((SecretKey) ks.getKey(idCliente+".skey", senha.toCharArray()));
+                prkeyCliente = (PrivateKey) ks.getKey(idCliente+".pr", senha.toCharArray());
+                certCliente = (X509Certificate) ks.getCertificate(idCliente+".cert");
+                pukeyCliente = certCliente.getPublicKey();
+                /*Tem que pergar cert e chaves*/
             } catch (KeyStoreException ex) {
 
                 System.out.println("Senha errada! Digite novamente.");
@@ -226,22 +226,35 @@ public class Cliente {
                 confirma = stdIn.readLine();
                 if (confirma.equals("s")) {
                     this.confereSenhas();
-                    //Creates a Key
+                    /*//Creates a Key
                     KeyGenerator keygen = KeyGenerator.getInstance("AES");
                     // inicializacao do tamanho chave
                     keygen.init(128);
                     // obtencao da chave secreta
-                    this.skeyCliente = keygen.generateKey();
+                    this.skeyCliente = keygen.generateKey();*/
+                    this.skeyCliente = Cifrador.CifradorAES.gerarChaveSecreta();
 
-
-                    KeyFactory kf = KeyFactory.getInstance("RSA");
+                    /*KeyFactory kf = KeyFactory.getInstance("RSA");
                     RSAPrivateKeySpec prspec = new RSAPrivateKeySpec(new BigInteger("10967329890609126549342864618470532711138147437917320994071629574339029161633059443601031534110334331301586615879817852513135997627023895462818039264327377"), new BigInteger("5492617935968578842524551055242684661259689567836829724696263574606033464197528124830013058381482085261392561829420128039731768130847357208373866284251129"));
                     RSAPublicKeySpec puspec = new RSAPublicKeySpec(new BigInteger("10967329890609126549342864618470532711138147437917320994071629574339029161633059443601031534110334331301586615879817852513135997627023895462818039264327377"), new BigInteger("65537"));
                     prkeyCliente = (RSAPrivateKey) kf.generatePrivate(prspec);
-                    pukeyCliente = (RSAPublicKey) kf.generatePublic(puspec);
-                    //saves the keystore
-                    ks.setKeyEntry(id_cliente, skeyCliente, senha.toCharArray(), null);
+                    pukeyCliente = (RSAPublicKey) kf.generatePublic(puspec);*/
 
+                    KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
+                    prkeyCliente = kp.getPrivate();
+                    certCliente = Certificado.CertificadoX509Certificate.generateCertificate("CN="+idCliente, kp, 1000, "MD5WithRSA");
+                    pukeyCliente = certCliente.getPublicKey();
+
+                    //salva chave simétrica
+                    ks.setKeyEntry(idCliente+".skey", skeyCliente, senha.toCharArray(), null);
+
+                    //salva chave publica
+                    ks.setCertificateEntry(idCliente+".cert", certCliente);
+
+                    //salva chave privada
+                    X509Certificate [] chain = new X509Certificate[1];
+                    chain[0] = certCliente;
+                    ks.setKeyEntry(idCliente+".pr", prkeyCliente, senha.toCharArray(), chain);
                     /*
                     Tem que salvar par de chaves no keystore
                      * ks.setKeyEntry(senha, , senha.toCharArray(), null);
@@ -253,7 +266,8 @@ public class Cliente {
                     ks.store(fos, senha.toCharArray());
                     fos.close();
 
-                    registrar(id_cliente, pukeyCliente);
+                    registrarChave = true;
+                            //registrar();
                 } else {
                     System.out.println("");
                 }
@@ -262,11 +276,11 @@ public class Cliente {
 
     }
 
-    public boolean registrar(String id, PublicKey puk) {
-        /*Registrar id_cliente e chave publica no servidor de autenticacao*/
+    public boolean registrar() {
+        /*Registrar idCliente e chave publica no servidor de autenticacao*/
         try {/*garantir que so o servidor abre*/
             //enviando id do cliente cifrado com a chave publica do servidor para registrar.
-            byte[] idByte = CifradorRSA.codificar(this.id_cliente.getBytes(), pAutenticacao.getPuServidor());
+            byte[] idByte = CifradorRSA.codificar(this.idCliente.getBytes(), pAutenticacao.getPuServidor());
             Protocolo.ProtocolData dataToServer = new ProtocolData(idByte);
             dataToServer.setMessage("REGISTRAR");
             autout.writeObject(dataToServer);
@@ -290,6 +304,20 @@ public class Cliente {
             autServerSocket.close();
         } catch (IOException ex) {
             Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void initStreamsServAut() {
+        try {
+            autServerSocket = new Socket(AUTENNAME, AUTENTPORT);
+            autout = new ObjectOutputStream(autServerSocket.getOutputStream());
+            autin = new ObjectInputStream(autServerSocket.getInputStream());
+        } catch (UnknownHostException e) {
+            System.err.println(AUTENNAME + " : Unkown Host");
+            System.exit(1);
+        } catch (IOException e) {
+            System.err.println(AUTENNAME + " : I/O Error");
+            System.exit(1);
         }
     }
 }
