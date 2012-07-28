@@ -84,6 +84,7 @@ public class TransferenciaArquivos extends Comum {
         } else if (sMessage.equalsIgnoreCase("SAIR")) {
                 theOutput = new ProtocolData("Encerrando...");
                 state = EXIT;
+                pcArquivos.encerrar_conexao(autout, autin);
                 /*Armazenar log*/
         } else {
             theOutput = new ProtocolData("Use:\n\"ENVIAR\" para enviar "

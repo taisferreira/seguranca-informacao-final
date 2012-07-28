@@ -11,6 +11,7 @@ import java.security.cert.X509Certificate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 public class Comum {
 
@@ -37,13 +38,14 @@ public class Comum {
     protected String password ;
     protected ArmazemChaves chaves;
     protected String arquivoKeyStore;
-    protected static String logfile = "D:\\logs\\log.txt";
-    boolean registrarChave = false;
+    protected static String logfile = "log.txt";
+    protected boolean registrarChave = false;
+    protected SecretKey chaveSessao;
 
     public Comum() {
         idServidor = "servidor";
         password = "servidor";
-        arquivoKeyStore = "/home/tais/serverKeyStore.ks";
+        arquivoKeyStore = "serverKeyStore.ks";
         init();
     }
 
@@ -69,30 +71,24 @@ public class Comum {
             case HANDSHAKING:
                 sMessage = theInput.getMessage();
                 if (sMessage.equalsIgnoreCase("CONECTAR")) {
-                    /*1. Recebe chave pública do cliente*/
+                    /*1. Recebe certificado do cliente*/
                     certCliente = theInput.getCertificado();
                     puCliente = certCliente.getPublicKey();
-                    //System.out.println("PublicKeyCliente: "+puCliente);
+                    idCliente = certCliente.getIssuerDN().getName().substring(3);
+                    System.out.println("Id recebido no certificado do cliente: "+idCliente);
 
-                    /* 2. Envia a sua chave pública*/
-                    //System.out.println("Chave que servidor está enviando: "+puServidor);
+                    /* 2. Envia a seu certificado*/
                     theOutput = new ProtocolData(certServidor);
 
+                } else if (sMessage.equalsIgnoreCase("SKEY")) {
+                    System.out.println(this.idCliente+" pedindo "+theInput.toString());
 
-                    /*Armazenar log*/
-                } else if (sMessage.equalsIgnoreCase("ID")) {
-                    /* 3. Decriptografar login do cliente*/
-                    byte[] dados = theInput.getBytes();
-                    dados = Cifrador.CifradorRSA.decodificar(dados, prServidor);
-                    //dados = Cifrador.CifradorRSA.decodificar(dados, this.puCliente);
-
-                    this.idCliente = new String(dados);
-                    System.out.println("IdCliente = "+this.idCliente);
-
-                    /* 4. Verificar cliente (Compara as chaves)*/
+                    /* 3. Verificar se cliente foi registrado*/
                     if (idEhAutentico(this.idCliente, puCliente)) {
-                        /*garantir que so o cliente abre*/
-                        byte [] bidServidor = Cifrador.CifradorRSA.codificar(this.idServidor.getBytes(), puCliente);
+                        /*Se cliente é autentico, envia chave a ser usada nesta sessao*/
+                        chaveSessao = Cifrador.CifradorAES.gerarChaveSecreta();
+                        chaveSessao = (SecretKey) new SecretKeySpec(chaveSessao.getEncoded(), "AES");
+                        byte [] bidServidor = Cifrador.CifradorRSA.codificar(chaveSessao.getEncoded(), puCliente);
                         theOutput = new ProtocolData(bidServidor);
                     } else {
                         theOutput = new ProtocolData("Cliente não é confiável.");
@@ -104,9 +100,7 @@ public class Comum {
                     state = CONNECTED;
                 }
                 else {
-                    /*theOutput = new ProtocolData("Você não está conectado, "
-                            + "envie \"CONECTAR\" para o servidor.");
-                    state = CONNECTED;*/
+                    /*O cliente não aceitou a conexão*/
                     theOutput = new ProtocolData("Encerrando...");
                     state = EXIT;
                 }

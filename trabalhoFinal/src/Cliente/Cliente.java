@@ -72,9 +72,6 @@ public class Cliente {
 
             while (!this.protocolo.isFecharConexao()) {
                 if (this.protocolo.isNaoConectado()) {
-                    System.out.println("digite seu login: ");
-                    this.idCliente = stdIn.readLine();
-
                     carrega_chaves();
 
                     /*reinicia protocolo com as chaves carregadas*/
@@ -141,7 +138,7 @@ public class Cliente {
          * cria ou carrega keystore que o cliente usa para salvar suas chaves
          */
         ks = KeyStore.getInstance("JCEKS");
-        file = new File("D:\\key\\myks.keystore");
+        file = new File("myks.keystore");
 
         if (!file.exists()) {
 
@@ -164,6 +161,9 @@ public class Cliente {
             senhaTemp = stdIn.readLine();
             System.out.println("Confirme a senha: ");
             confirmaSenha = stdIn.readLine();
+            if(!senhaTemp.equals(confirmaSenha)){
+                System.out.println("\nSenhas não conferem. Tente novamente.");
+            }
         }
         senha = senhaTemp;
         return true;
@@ -177,7 +177,8 @@ public class Cliente {
          * suas as chaves.
          *
          */
-
+        System.out.println("Digite seu login: ");
+        this.idCliente = stdIn.readLine();
 
         if (ks.isKeyEntry(idCliente+".skey")) {
             System.out.println("Digite sua senha: ");
@@ -270,6 +271,7 @@ public class Cliente {
                             //registrar();
                 } else {
                     System.out.println("");
+                    carrega_chaves();/*Volta pra o inicio pra pedir login de novo*/
                 }
             }
         }

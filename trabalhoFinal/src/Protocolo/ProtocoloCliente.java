@@ -14,6 +14,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
 import Cifrador.CifradorHASH;
+import javax.crypto.spec.SecretKeySpec;
 
 public class ProtocoloCliente {
 
@@ -44,6 +45,11 @@ public class ProtocoloCliente {
     public PublicKey getPuServidor() {
         return this.puServidor;
     }
+    
+    public SecretKey getChaveSessao() {
+        return this.chaveSessao;
+    }
+
     private boolean verificarAutenticidade = false;
     private ObjectOutputStream outAutenticacao;
     private ObjectInputStream inAutenticacao;
@@ -73,15 +79,15 @@ public class ProtocoloCliente {
             if (mensagem != null) {
                 if (mensagem.equalsIgnoreCase("CONECTAR")) {
                     init_handshaking(out, mensagem);
-                    mensagem = "ID";
-                } else if (mensagem.equalsIgnoreCase("ID")) {
-                    lerServPUKEY(in);
-                    enviarID(out, mensagem);
+                    mensagem = "SKEY";
+                } else if (mensagem.equalsIgnoreCase("SKEY")) {
+                    lerServCert(in);
+                    pedirSKEY(out, mensagem);
                     mensagem = "OK";
                 } else if (mensagem.equalsIgnoreCase("OK")) {
                     if (dataFromServer.getStatus() != Comum.LOGINERROR) {
                         /*Servidor reconheceu cliente*/
-                        lerIDServ(in);
+                        lerSKEYServ(in);
 
                         if (this.verificarAutenticidade) {
                             if (false == idEhAutentico(this.idServidor, this.puServidor)) {
@@ -177,13 +183,14 @@ public class ProtocoloCliente {
         }
     }
 
-    /*2. Ler chave pública do servidor*/
-    private void lerServPUKEY(ObjectInputStream in) {
+    /*2. Le certificado do servidor*/
+    private void lerServCert(ObjectInputStream in) {
         try {
             dataFromServer = (ProtocolData) in.readObject();
             this.certServidor = dataFromServer.getCertificado();
             this.puServidor = certServidor.getPublicKey();
-            //System.out.println("Chave que "+this.idCliente+" recebeu do servidor: "+this.puServidor);
+            this.idServidor = certServidor.getIssuerDN().getName().substring(3);
+            System.out.println("Id recebido no certificado do servidor: "+idServidor);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ClassNotFoundException ex) {
@@ -191,11 +198,10 @@ public class ProtocoloCliente {
         }
     }
 
-    /* 3. Enviar id_cliente para servidor*/
-    private void enviarID(ObjectOutputStream out, String sMessage) {
-        try {/*garantir que so o servidor abre*/
-            byte[] id = CifradorRSA.codificar(this.idCliente.getBytes(), this.puServidor);
-            dataToServer = new ProtocolData(id);
+    /* 3. Pedir chave secreta ao servidor*/
+    private void pedirSKEY(ObjectOutputStream out, String sMessage) {
+        try {            
+            dataToServer = new ProtocolData("Secret Key");
             dataToServer.setMessage(sMessage);
             out.writeObject(dataToServer);
         } catch (IOException ex) {
@@ -204,12 +210,13 @@ public class ProtocoloCliente {
     }
 
     /* 4. Ler id do servidor*/
-    private void lerIDServ(ObjectInputStream in) {
+    private void lerSKEYServ(ObjectInputStream in) {
         try {
             dataFromServer = (ProtocolData) in.readObject();
             byte[] dados = dataFromServer.getBytes();
             dados = Cifrador.CifradorRSA.decodificar(dados, prCliente);
-            this.idServidor = new String(dados);
+
+            chaveSessao = (SecretKey) new SecretKeySpec(dados, "AES");
             System.out.println("IdServidor = " + this.idServidor);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
