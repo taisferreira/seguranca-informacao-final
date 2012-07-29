@@ -150,8 +150,7 @@ public class Comum {
         chaves = new ArmazemChaves(arquivoKeyStore, password);
 
         /*Se ainda não tem um par de chaves, cria e salva na keystore*/
-        this.certServidor = chaves.pegaCertificado(idServidor);
-        if(certServidor == null){
+        if(chaves.contemID(idServidor) == false){
             java.security.KeyPair kp = Cifrador.CifradorRSA.gerarParChaves();
             puServidor = kp.getPublic();
             prServidor = kp.getPrivate();
@@ -161,6 +160,7 @@ public class Comum {
             registrarChave = true;
         }
         else{
+            this.certServidor = chaves.pegaCertificado(idServidor);
             this.puServidor = certServidor.getPublicKey();
             this.prServidor = chaves.pegaPrivateKey(idServidor, password);
             //System.out.println("Comum publicKey: "+this.puServidor);

@@ -1,14 +1,11 @@
 package Protocolo;
 
-import Cifrador.CifradorRSA;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.PublicKey;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 public class TransferenciaArquivos extends Comum {
     /*Para conversar com o servidor de autenticacao*/
@@ -115,18 +112,8 @@ public class TransferenciaArquivos extends Comum {
     }
 
     private void registrar() {
-        /*Registrar id_cliente e chave publica no servidor de autenticacao*/
-        try {/*garantir que so o servidor abre*/
-            //enviando id do cliente cifrado com a chave publica do servidor para registrar.
-            byte[] idByte = CifradorRSA.codificar(idServidor.getBytes(), pcArquivos.getPuServidor());
-            Protocolo.ProtocolData dataToServer = new ProtocolData(idByte);
-            dataToServer.setMessage("REGISTRAR");
-            autout.writeObject(dataToServer);
-            pcArquivos.leImprimeRespostaServidor(autin);
-
-        } catch (IOException ex) {
-            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        /*Registrar idCliente servidor de autenticacao*/
+        pcArquivos.registrar(autout, autin);
         registrarChave = false;
     }
 

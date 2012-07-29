@@ -54,13 +54,6 @@ public class ProtocoloCliente {
     private ObjectOutputStream outAutenticacao;
     private ObjectInputStream inAutenticacao;
 
-    /*public ProtocoloCliente(PublicKey pucliente, PrivateKey prcliente,
-    SecretKey skeycliente, String idcliente) {
-    this.puCliente = pucliente;
-    this.prCliente = prcliente;
-    this.idCliente = idcliente;
-    this.skeyCliente = skeycliente;
-    }*/
     public ProtocoloCliente(X509Certificate certificado, PrivateKey prcliente,
             SecretKey skeycliente, String idcliente) {
         this.certCliente = certificado;
@@ -157,10 +150,7 @@ public class ProtocoloCliente {
                     9. Se o hash for o mesmo, salva o arquivo em uma pasta de downloads
                      */
                 } else {
-                    System.out.println("Entre com um dado: ");
-                    String sData = stdIn.readLine();
-
-                    dataToServer = new ProtocolData(sData);
+                    dataToServer = new ProtocolData();
                     dataToServer.setMessage(mensagem);
                     out.writeObject(dataToServer);
                     leImprimeRespostaServidor(in);
@@ -279,7 +269,6 @@ public class ProtocoloCliente {
     }
 
     public PublicKey buscar_chave(String id) {
-        System.out.println("busca_chave(" + id + ")");
         PublicKey puid = null;
         X509Certificate certid;
         try {
@@ -307,7 +296,6 @@ public class ProtocoloCliente {
         }
 
         return puid;
-        //return this.puServidor; /*código de teste*/
     }
 
     public void encerrar_conexao(ObjectOutputStream autout, ObjectInputStream autin) {
@@ -318,6 +306,22 @@ public class ProtocoloCliente {
             leImprimeRespostaServidor(autin);
             autout.close();
             autin.close();
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public void registrar(ObjectOutputStream autout, ObjectInputStream autin)
+    {
+        /*Registrar idCliente no servidor de autenticacao*/
+        try {//garantir que so o servidor abre
+            //enviando id do cliente cifrado com a chave publica do servidor para registrar.
+            byte[] idByte = CifradorRSA.codificar(idCliente.getBytes(), puServidor);
+            dataToServer = new ProtocolData(idByte);
+            dataToServer.setMessage("REGISTRAR");
+            autout.writeObject(dataToServer);
+            leImprimeRespostaServidor(autin);
+
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         }

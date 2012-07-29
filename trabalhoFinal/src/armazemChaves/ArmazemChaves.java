@@ -75,12 +75,13 @@ public class ArmazemChaves {
 
                 /*guarda chave publica*/
                 X509Certificate cert = CertificadoX509Certificate.generateCertificate("CN=" + id, kp, 1000, "MD5WithRSA");
-                ks.setCertificateEntry(id, cert);
+                ks.setCertificateEntry(id+".cert", cert);
 
                 /*guarda chave privada*/
                 X509Certificate[] chain = new X509Certificate[1];
                 chain[0] = cert;
-                ks.setKeyEntry(id, kp.getPrivate(), senhaChar, chain);
+                ks.setKeyEntry(id+".pr", kp.getPrivate(), senhaChar, chain);
+
                 /*Atualiza arquivo da keystore no disco*/
                 fos = new FileOutputStream(this.file);
                 this.ks.store(fos, this.password.toCharArray());
@@ -99,35 +100,63 @@ public class ArmazemChaves {
         }
     }
 
+    public void guardaCertificado(String id, X509Certificate cert) {
+        {
+            FileOutputStream fos = null;
+            try {
+                ks.setCertificateEntry(id+".cert", cert);
+                fos = new FileOutputStream(this.file);
+                this.ks.store(fos, this.password.toCharArray());
+                fos.close();
+            } catch (IOException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (NoSuchAlgorithmException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (CertificateException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (KeyStoreException ex) {
+                Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                try {
+                    fos.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+    }
+
     public X509Certificate pegaCertificado(String id) {
         try {/*Certificado não é armazenado com senha*/
-            if (ks.containsAlias(id)) {
-                return (X509Certificate) ks.getCertificate(id);
+            if (ks.containsAlias(id+".cert")) {
+                return (X509Certificate) ks.getCertificate(id+".cert");
             } else {
                 return null;
             }
         } catch (KeyStoreException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         }
-        return null;
     }
 
     public PrivateKey pegaPrivateKey(String id, String senha) {
         try {
-            if (ks.containsAlias(id)) {
-                return (PrivateKey) ks.getKey(id, senha.toCharArray());
+            if (ks.containsAlias(id+".pr")) {
+                return (PrivateKey) ks.getKey(id+".pr", senha.toCharArray());
             } else {
                 return null;
             }
 
         } catch (KeyStoreException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         } catch (UnrecoverableKeyException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        return null;
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
+        } 
     }
 
     public void guardaSecretKey(String id, SecretKey skey, String senhasString) {
@@ -168,12 +197,26 @@ public class ArmazemChaves {
             }
 
         } catch (KeyStoreException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         } catch (NoSuchAlgorithmException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         } catch (UnrecoverableKeyException ex) {
-            Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return null;
         }
-        return null;
+    }
+
+    public boolean contemID(String id){
+        try {
+            if(ks.containsAlias(id+".cert") || ks.containsAlias(id+".skey")){
+                return true;
+            }
+            return false;
+        } catch (KeyStoreException ex) {
+            //Logger.getLogger(ArmazemChaves.class.getName()).log(Level.SEVERE, null, ex);
+            return false;
+        }
     }
 }
