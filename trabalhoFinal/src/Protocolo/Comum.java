@@ -1,10 +1,7 @@
 package Protocolo;
 
 import armazemChaves.ArmazemChaves;
-import java.io.BufferedOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
@@ -168,13 +165,17 @@ public class Comum {
         }
     }
 
-    //implementação temporária
     protected static void escreveLog(String log){
+       PrintWriter w = null; 
         try {
-            OutputStream out = new BufferedOutputStream(new FileOutputStream(logfile));
-             out.write(log.getBytes());
+            w = new PrintWriter(new FileWriter(logfile,true));
+            w.println(log);
+            w.flush();
+            w.close();
         } catch (IOException ex) {
             Logger.getLogger(Comum.class.getName()).log(Level.SEVERE, null, ex);
+        }finally{
+            w.close();
         }
     }
 }
