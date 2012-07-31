@@ -52,9 +52,6 @@ public class ThreadServidor extends Thread {
 
         } catch (IOException e) {
             //e.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        }finally{
             try {
                 out.close();
                 in.close();
@@ -63,6 +60,8 @@ public class ThreadServidor extends Thread {
             } catch (IOException ex) {
                 Logger.getLogger(ThreadServidor.class.getName()).log(Level.SEVERE, null, ex);
             }
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
         }
     }
 

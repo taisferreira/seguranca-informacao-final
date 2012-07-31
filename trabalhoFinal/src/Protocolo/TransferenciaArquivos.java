@@ -1,9 +1,12 @@
 package Protocolo;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
@@ -44,18 +47,20 @@ public class TransferenciaArquivos extends Comum {
         String sMessage;
         sMessage = theInput.getMessage();
 
-        //Cliente está enviando um dado
         if (sMessage.equalsIgnoreCase("ENVIAR")) {
             byte[] arquivo = theInput.getBytes();
-            File diretorio = new File(("c:\\"+this.idCliente));
+            File diretorio = new File((this.idCliente));
             if(diretorio.exists()){
-                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);               
+                diretorio = new File(this.idCliente + "/"+nomeArquivo);
             }else{
                 diretorio.mkdirs();
-                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);                
+
+                diretorio = new File(this.idCliente + "/"+ nomeArquivo);
+
             }
             salvarArq(arquivo,diretorio);
-            Comum.escreveLog(this.logfile);          
+            Comum.escreveLog(logfile);          
+
             System.out.println("Salvando arquivo");
             theOutput = new ProtocolData("Arquivo " + nomeArquivo + " foi salvo!");
         }else  if(sMessage.equalsIgnoreCase("CAMINHO")){
@@ -64,32 +69,69 @@ public class TransferenciaArquivos extends Comum {
             System.out.println("Salvando  nome do arquivo");
             theOutput = new ProtocolData("O arquivo " + nomeArquivo + " foi salvo!");
         } else if (sMessage.equalsIgnoreCase("LISTAR")) {
-            /*1. Verifica se cliente tem diretório.
-            File diretorio = new File("c:/id_cliente");
-            if(!diretorio.exists())
+            /*1. Verifica se cliente tem diretório
+            2. Se cliente tem diretorio, envia lista de arquivos*/
+            String nome = new String(Cifrador.CifradorAES.decodificar(theInput.getBytes(), chaveSessao));
+            String resposta;
 
-            2. Se cliente tem diretorio, envia lista de arquivos
-            File dir; dir.list()
+            if (nome.equals(idCliente)) {
+                File diretorio = new File(idCliente);
 
-            3. Armazena log*/
-            String listaArquivos = "FAKE1, FAKE2";
-            theOutput = new ProtocolData("Lista de arquivos: " + listaArquivos);
+                System.out.println("Listando arquivos de " + nome);
+
+                if (!diretorio.exists() || diretorio.list().length == 0) {
+                    resposta = "\nVocê não possui arquivos no servidor\n";
+                } else {
+                    resposta = "\nSeus arquivos:\n";
+                    String arqs[] = diretorio.list();
+                    for (int i = 0; i < arqs.length; i++) {
+                        resposta = resposta + arqs[i] + "\n";
+                    }
+                }
+            } else {
+                resposta = "\nVocê não tem permissão para acessar os"
+                        + " arquivos de " + nome + "\n";
+            }
+
+            byte[] enviar = Cifrador.CifradorAES.codificar(resposta.getBytes(), chaveSessao);
+            theOutput = new ProtocolData(enviar);
+            theOutput.setMessage("LISTAR");
+
         } else if (sMessage.equalsIgnoreCase("BUSCAR")) {
-            /*
-            1. Envia arquivo com o nome especificado pelo cliente.
-
+            /*1. Envia arquivo com o nome especificado pelo cliente.
             2. Se arquivo não existe no diretório do cliente envia mensagem
-            de arquivo não encontrado. Se o arquivo existe envia o arquivo.
+            de arquivo não encontrado. Se o arquivo existe envia o arquivo.*/
+            String narquivo = new String(Cifrador.CifradorAES.decodificar(theInput.getBytes(), chaveSessao));
+            System.out.println("buscando o arquivo " + narquivo);
 
-            3. Armazena log
-             */
-           // String nomeArquivo = "FAKE";
-            theOutput = new ProtocolData("Enviei o arquivo " + nomeArquivo);
+
+            File diretorio = new File(idCliente + "/" + narquivo);
+            if (!diretorio.exists()) {
+                theOutput = new ProtocolData();
+                theOutput.setBytes(null);
+            } else {
+                byte[] enviar = null;
+
+                try {
+                    File file = new File(diretorio.getAbsolutePath());
+                    InputStream is = new FileInputStream(file);
+                    enviar = new byte [(int) file.length()];
+                    is.read(enviar);
+                } catch (IOException ex) {
+                    Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
+                }
+
+                enviar = Cifrador.CifradorAES.codificar(enviar, chaveSessao);
+                theOutput = new ProtocolData(enviar);
+            }
+
+            theOutput.setMessage("BUSCAR");
+
         } else if (sMessage.equalsIgnoreCase("SAIR")) {
-                theOutput = new ProtocolData("Encerrando...");
-                state = EXIT;
-                pcArquivos.encerrar_conexao(autout, autin);
-                /*Armazenar log*/
+            theOutput = new ProtocolData("Encerrando...");
+            state = EXIT;
+            pcArquivos.encerrar_conexao(autout, autin);
+            /*Armazenar log*/
         } else {
             theOutput = new ProtocolData("Use:\n\"ENVIAR\" para enviar "
                     + "arquivo para o servidor\n\"BUSCAR\" para buscar"
@@ -109,11 +151,11 @@ public class TransferenciaArquivos extends Comum {
 
 
         // 2. compara chaves: retorna false se não for igual e true se for igual
-        if(pu != null && pu.equals(puCliente)){
-          System.out.println(idCliente+" é confiável!");
-          return true;
+        if (pu != null && pu.equals(puCliente)) {
+            System.out.println(idCliente + " é confiável!");
+            return true;
         }
-        System.out.println(idCliente+" não é confiável.");
+        System.out.println(idCliente + " não é confiável.");
         return false;
         //return true;/*o código acima contém bugs*/
     }

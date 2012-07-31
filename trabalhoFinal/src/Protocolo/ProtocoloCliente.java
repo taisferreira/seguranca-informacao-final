@@ -15,7 +15,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
 import Cifrador.CifradorHASH;
+import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.InputStream;
 import javax.crypto.spec.SecretKeySpec;
 
 public class ProtocoloCliente {
@@ -35,6 +39,7 @@ public class ProtocoloCliente {
     private boolean fecharConexao = false;
     private ProtocoloCliente autenticador;
     private SecretKey chaveSessao;
+    private int tamanhoHashCifrado;
 
     public boolean isFecharConexao() {
         return fecharConexao;
@@ -47,11 +52,10 @@ public class ProtocoloCliente {
     public PublicKey getPuServidor() {
         return this.puServidor;
     }
-    
+
     public SecretKey getChaveSessao() {
         return this.chaveSessao;
     }
-
     private boolean verificarAutenticidade = false;
     private ObjectOutputStream outAutenticacao;
     private ObjectInputStream inAutenticacao;
@@ -63,6 +67,10 @@ public class ProtocoloCliente {
         this.prCliente = prcliente;
         this.idCliente = idcliente;
         this.skeyCliente = skeycliente;
+
+        byte[] hash = Cifrador.CifradorHASH.hashArq("string".getBytes());
+        hash = Cifrador.CifradorRSA.codificar(hash, puCliente);
+        this.tamanhoHashCifrado = hash.length;
     }
 
     public ProtocoloCliente() {
@@ -119,38 +127,33 @@ public class ProtocoloCliente {
                     leImprimeRespostaServidor(in);
                     fecharConexao = true;
                 } else if (mensagem.equalsIgnoreCase("ENVIAR")) {
-                    boolean status = true;                    
-                    String nomeArq,msg = "";
+                    boolean status = true;
+                    String nomeArq, msg = "";
                     msg = "ENVIAR";
-                    while(status){
-                        if(msg != null){
-                            if(msg.equalsIgnoreCase("ENVIAR")){                                
+                    while (status) {
+                        if (msg != null) {
+                            if (msg.equalsIgnoreCase("ENVIAR")) {
                                 System.out.println("Digite o nome do Arquivo: ");
                                 nomeArq = stdIn.readLine();
-                                enviarNomeArq(out,nomeArq);
+                                enviarNomeArq(out, nomeArq);
                                 leImprimeRespostaServidor(in);
                                 msg = "CAMINHO";
-                            }else if(msg.equalsIgnoreCase("CAMINHO")){
-                                System.out.println("Digite caminho do arquivo(com extensao): ");        
+                            } else if (msg.equalsIgnoreCase("CAMINHO")) {
+                                System.out.println("Digite caminho do arquivo(com extensao): ");
                                 String caminho = stdIn.readLine();
-                                enviarArqCifrado(out,caminho);
+                                enviarArqCifrado(out, caminho);
                                 leImprimeRespostaServidor(in);
                                 status = false;
                             }
-                        } 
-                    }                    
+                        }
+                    }
+                } else if (mensagem.equalsIgnoreCase("LISTAR")) {
+                    listarArquivos(in, out);
                 } else if (mensagem.equalsIgnoreCase("BUSCAR")) {
-                    /*
-                    1. Pede para servidor listar arquivos(envia LISTAR).
-                    2. Le lista recebida e imprime na tela
-                    3. Le nome do arquivo do teclado e envia BUSCAR para o servidor de arquivos
-                    4. Le arquivo (sequencia de bytes) enviado pelo servidor
-                    5. Decriptografa com skeycliente.
-                    6. Separa bytes do arquivo dos bytes do hash
-                    7. Descriptografa hash com prCliente
-                    8. gera hash dos bytes do arquivo e compara.
-                    9. Se o hash for o mesmo, salva o arquivo em uma pasta de downloads
-                     */
+                    listarArquivos(in, out);
+
+                    buscarArquivo(in, out);
+
                 } else {
                     dataToServer = new ProtocolData();
                     dataToServer.setMessage(mensagem);
@@ -182,7 +185,7 @@ public class ProtocoloCliente {
             this.certServidor = dataFromServer.getCertificado();
             this.puServidor = certServidor.getPublicKey();
             this.idServidor = certServidor.getIssuerDN().getName().substring(3);
-            System.out.println("Id recebido no certificado do servidor: "+idServidor);
+            System.out.println("Id recebido no certificado do servidor: " + idServidor);
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (ClassNotFoundException ex) {
@@ -192,7 +195,7 @@ public class ProtocoloCliente {
 
     /* 3. Pedir chave secreta ao servidor*/
     private void pedirSKEY(ObjectOutputStream out, String sMessage) {
-        try {            
+        try {
             dataToServer = new ProtocolData("Secret Key");
             dataToServer.setMessage(sMessage);
             out.writeObject(dataToServer);
@@ -313,8 +316,7 @@ public class ProtocoloCliente {
         }
     }
 
-    public void registrar(ObjectOutputStream autout, ObjectInputStream autin)
-    {
+    public void registrar(ObjectOutputStream autout, ObjectInputStream autin) {
         /*Registrar idCliente no servidor de autenticacao*/
         try {//garantir que so o servidor abre
             //enviando id do cliente cifrado com a chave publica do servidor para registrar.
@@ -328,10 +330,164 @@ public class ProtocoloCliente {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
+    /*
+    1. Pede para servidor listar arquivos.
+    2. Le lista recebida e imprime na tela */
+    private void listarArquivos(ObjectInputStream in, ObjectOutputStream out) {
+        try {
+            byte[] idByte = Cifrador.CifradorAES.codificar(idCliente.getBytes(), chaveSessao);
+            dataToServer = new ProtocolData(idByte);
+            dataToServer.setMessage("LISTAR");
+            out.writeObject(dataToServer);
+
+            boolean continua = true;
+            int tentativas = 0;
+            while (continua) {
+                dataFromServer = (ProtocolData) in.readObject();
+                if (dataFromServer == null) {
+                    //System.out.println("Lendo entrada de novo");
+                    dataFromServer = (ProtocolData) in.readObject();
+                } else if (dataFromServer.getMessage().equals("LISTAR")) {
+                    byte[] listaarquivos = dataFromServer.getBytes();
+                    listaarquivos = Cifrador.CifradorAES.decodificar(listaarquivos, chaveSessao);
+                    String arquivos = new String(listaarquivos);
+                    System.out.println(arquivos);
+                    continua = false;
+                } else {
+                    if (tentativas > 1000) {
+                        continua = false;
+                        System.out.println("Servidor não está respondendo.");
+                    }
+                    tentativas++;
+                }
+            }
+            dataFromServer = null;
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    /*
+    1. Le nome do arquivo do teclado e envia BUSCAR para o servidor de arquivos
+    2. Le arquivo (sequencia de bytes) enviado pelo servidor
+    3. Decriptografa com chave de sessão e skeycliente.
+    4. Separa bytes do arquivo dos bytes do hash
+    5. Descriptografa hash com prCliente
+    6. gera hash dos bytes do arquivo e compara.
+    7. Se o hash for o mesmo, salva o arquivo em uma pasta de downloads */
+    private void buscarArquivo(ObjectInputStream in, ObjectOutputStream out) {
+        try {
+            System.out.println("Digite o nome do arquivo que deseja buscar:");
+            String arquivo = stdIn.readLine();
+
+            if (arquivo == null || arquivo.isEmpty()) {
+                System.out.println("Não consegui ler o nome do arquivo.\n");
+                return;
+            }
+            byte[] bytesArquivo = Cifrador.CifradorAES.codificar(arquivo.getBytes(), chaveSessao);
+            dataToServer = new ProtocolData(bytesArquivo);
+            dataToServer.setMessage("BUSCAR");
+            out.writeObject(dataToServer);
+
+            boolean continua = true;
+            int tentativas = 0;
+            while (continua) {
+                dataFromServer = (ProtocolData) in.readObject();
+                if (dataFromServer == null) {
+                    dataFromServer = (ProtocolData) in.readObject();
+                } else if (dataFromServer.getMessage().equals("BUSCAR")) {
+                    bytesArquivo = dataFromServer.getBytes();
+
+                    if (bytesArquivo == null) {
+                        System.out.println("Servidor não encontrou " + arquivo+"\n");
+                    } else {
+                        bytesArquivo = Cifrador.CifradorAES.decodificar(bytesArquivo, chaveSessao);
+
+                        bytesArquivo = Cifrador.CifradorAES.decodificar(bytesArquivo, skeyCliente);
+
+                        //separa o hash do conteudo do arquivo
+                        InputStream is = new ByteArrayInputStream(bytesArquivo, 0, tamanhoHashCifrado);
+                        byte[] hashrec = new byte[tamanhoHashCifrado];
+                        is.read(hashrec);
+                        hashrec = Cifrador.CifradorRSA.decodificar(hashrec, prCliente);
+
+                        //bytesArquivo = new byte[(bytesArquivo.length-tamanhoHashCifrado)];
+                        is = new ByteArrayInputStream(bytesArquivo, tamanhoHashCifrado, bytesArquivo.length);
+                        byte[] salvar = new byte[bytesArquivo.length-tamanhoHashCifrado];
+                        is.read(salvar);
+                        //gera novo hash e compara
+                        byte[] novohash = Cifrador.CifradorHASH.hashArq(salvar);
+
+                        if(java.util.Arrays.equals(hashrec,novohash)){
+                            System.out.println("Arquivo integro!\n");
+                        }
+                        else{
+                            System.out.println("O arquivo enviado pelo servidor" +
+                                    " está corrompido.\n Saindo sem salvar.\n");
+                        }
+
+                        //salvar arquivo baixado
+                        System.out.println("Em qual diretório devo salvar seu arquivo:");
+                        String diretorio = stdIn.readLine();
+
+                        if (diretorio == null || diretorio.isEmpty()) {
+                            /*Diretorio padrão caso o cliente não especifique*/
+                            File file = new File(idCliente);
+                            if(!file.exists()){
+                                file.mkdir();
+                            }
+
+                            file = new File(idCliente+"/downloads");
+                            if(!file.exists()){
+                                file.mkdir();
+                            }
+                            
+                            diretorio = idCliente + "/downloads/" + arquivo;
+                        } else {
+                            if (diretorio.substring(diretorio.length() - 1).equals("/")) {
+                                diretorio = diretorio + arquivo;
+                            } else {
+                                diretorio = diretorio + "/" + arquivo;
+                            }
+                        }
+
+                        File file = new File(diretorio);
+                        if (file.createNewFile()) {
+                            FileOutputStream fos = new FileOutputStream(file);
+                            fos.write(salvar);
+                            fos.close();
+                            System.out.println("Seu arquivo foi salvo "
+                                    + "em: " + file.getAbsolutePath());
+                        } else {
+                            System.out.println("Infelizmente, não consegui salvar "
+                                    + "o seu arquivo. Veririfique se o diretorio"
+                                    + "especificado realmente existe.");
+                        }
+                    }
+                    continua = false;
+                } else {
+                    if (tentativas > 1000) {
+                        continua = false;
+                        System.out.println("Servidor não está respondendo.");
+                    }
+                    tentativas++;
+                }
+            }
+
+            dataFromServer = null;
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     private void enviarNomeArq(ObjectOutputStream out, String nomeArq) {
-       byte[] nome = CifradorRSA.codificar(nomeArq.getBytes(), this.puServidor);      
-       dataToServer = new ProtocolData(nome);        
+        byte[] nome = CifradorRSA.codificar(nomeArq.getBytes(), this.puServidor);
+        dataToServer = new ProtocolData(nome);
         try {
             dataToServer.setMessage("CAMINHO");
             out.writeObject(dataToServer);
@@ -343,29 +499,42 @@ public class ProtocoloCliente {
     private void enviarArqCifrado(ObjectOutputStream out, String caminho) throws IOException {
         byte[] hashCifrado;
         byte[] enviar;
-        String texto = "";
+        /*String texto = "";
         BufferedReader arquivo;
+
         arquivo = new BufferedReader(new FileReader(caminho));
-        while(arquivo.ready()){
-            texto = texto+arquivo.readLine();
+        while (arquivo.ready()) {
+            texto = texto + arquivo.readLine();
+        }*/
+        byte[] texto = null;
+
+        try {
+            File file = new File(caminho);
+            InputStream is = new FileInputStream(file);
+            texto = new byte[(int) file.length()];
+            is.read(texto);
+        } catch (IOException ex) {
+            Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
         }
-        byte[] arqHash = CifradorHASH.hashArq(texto.getBytes());        
+        byte[] arqHash = CifradorHASH.hashArq(texto/*.getBytes()*/);
         hashCifrado = CifradorRSA.codificar(arqHash, puCliente);
-        enviar = new byte[hashCifrado.length + texto.getBytes().length];
-        for(int i=0; i<hashCifrado.length; i++){
+
+        enviar = new byte[hashCifrado.length + texto.length];
+        for (int i = 0; i < hashCifrado.length; i++) {
             enviar[i] = hashCifrado[i];
         }
-        byte[] bytesArq = texto.getBytes();
-        for(int i=0; i< texto.getBytes().length; i++){
-            enviar[i+hashCifrado.length] = bytesArq[i];
-        }                    
+        byte[] bytesArq = texto;
+        for (int i = 0; i < texto.length; i++) {
+            enviar[i + hashCifrado.length] = bytesArq[i];
+        }
+
         byte[] arqEnviar = CifradorAES.codificar(enviar, skeyCliente);
-        Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData(arqEnviar);
+        dataToServer = new Protocolo.ProtocolData(arqEnviar);
         dataToServer.setMessage("ENVIAR");
-        try{
+        try {
             out.writeObject(dataToServer);
-        }catch (IOException ex) {
+        } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
-        }        
+        }
     }
 }
