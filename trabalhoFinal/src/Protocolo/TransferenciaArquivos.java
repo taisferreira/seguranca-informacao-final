@@ -49,27 +49,13 @@ public class TransferenciaArquivos extends Comum {
             byte[] arquivo = theInput.getBytes();
             File diretorio = new File(("c:\\"+this.idCliente));
             if(diretorio.exists()){
-                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);
-                salvarArq(arquivo,diretorio);
+                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);               
             }else{
                 diretorio.mkdirs();
                 diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);
                 salvarArq(arquivo,diretorio);
             }
-              //String nomeArquivo = "FAKE";            
-            //nomeArquivo = theInput.getBytes().toString();           
-            /*
-            1. Le nome e conteudo do arquivo enviados pelo cliente
-
-            2. Se cliente não tem diretório cria um
-            File diretorio = new File("c:/id_cliente");
-            if(!diretorio.exists())
-            diretorio.mkdir();
-
-            3. Salva arquivo no diretório do cliente;
-
-            4. Armazena log
-             */
+            Comum.escreveLog(this.logfile);          
             System.out.println("Salvando arquivo");
             theOutput = new ProtocolData("Arquivo " + nomeArquivo + " foi salvo!");
         }else  if(sMessage.equalsIgnoreCase("CAMINHO")){
