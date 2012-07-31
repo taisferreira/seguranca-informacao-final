@@ -5,6 +5,7 @@ import java.io.*;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.util.Date;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
@@ -169,7 +170,8 @@ public class Comum {
        PrintWriter w = null; 
         try {
             w = new PrintWriter(new FileWriter(logfile,true));
-            w.println(log);
+            Date date = new Date();
+            w.println(date.toString() +" "+ log);
             w.flush();
             w.close();
         } catch (IOException ex) {
