@@ -1,11 +1,16 @@
 package Protocolo;
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.security.PublicKey;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TransferenciaArquivos extends Comum {
     /*Para conversar com o servidor de autenticacao*/
@@ -16,6 +21,7 @@ public class TransferenciaArquivos extends Comum {
     private ObjectOutputStream autout;
     private ObjectInputStream autin;
     private ProtocoloCliente pcArquivos;
+    private String nomeArquivo = "FAKE";
 
     public TransferenciaArquivos() {
         super("TransferenciaArquivos", "servidor", "kstoreArquivos.ks");
@@ -40,8 +46,18 @@ public class TransferenciaArquivos extends Comum {
 
         //Cliente está enviando um dado
         if (sMessage.equalsIgnoreCase("ENVIAR")) {
-            String nomeArquivo = "FAKE";
-
+            byte[] arquivo = theInput.getBytes();
+            File diretorio = new File(("c:\\"+this.idCliente));
+            if(diretorio.exists()){
+                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);
+                salvarArq(arquivo,diretorio);
+            }else{
+                diretorio.mkdirs();
+                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);
+                salvarArq(arquivo,diretorio);
+            }
+              //String nomeArquivo = "FAKE";            
+            //nomeArquivo = theInput.getBytes().toString();           
             /*
             1. Le nome e conteudo do arquivo enviados pelo cliente
 
@@ -56,6 +72,11 @@ public class TransferenciaArquivos extends Comum {
              */
             System.out.println("Salvando arquivo");
             theOutput = new ProtocolData("Arquivo " + nomeArquivo + " foi salvo!");
+        }else  if(sMessage.equalsIgnoreCase("CAMINHO")){
+           byte[] result = Cifrador.CifradorRSA.decodificar(theInput.getBytes(), prServidor);
+            nomeArquivo = new String(result);            
+            System.out.println("Salvando  nome do arquivo");
+            theOutput = new ProtocolData("O arquivo " + nomeArquivo + " foi salvo!");
         } else if (sMessage.equalsIgnoreCase("LISTAR")) {
             /*1. Verifica se cliente tem diretório.
             File diretorio = new File("c:/id_cliente");
@@ -76,7 +97,7 @@ public class TransferenciaArquivos extends Comum {
 
             3. Armazena log
              */
-            String nomeArquivo = "FAKE";
+           // String nomeArquivo = "FAKE";
             theOutput = new ProtocolData("Enviei o arquivo " + nomeArquivo);
         } else if (sMessage.equalsIgnoreCase("SAIR")) {
                 theOutput = new ProtocolData("Encerrando...");
@@ -129,5 +150,16 @@ public class TransferenciaArquivos extends Comum {
             System.err.println(AUTENNAME + " : I/O Error");
             System.exit(1);
         }
+    }   
+
+    private void salvarArq(byte[] arquivo, File diretorio) {
+        FileOutputStream in = null ;    
+                try {
+                    in = new FileOutputStream(diretorio);                 
+                    in.write(arquivo);                  
+                    in.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
+                }
     }
 }

@@ -1,5 +1,6 @@
 package Protocolo;
 
+import Cifrador.CifradorAES;
 import Cifrador.CifradorRSA;
 import java.io.BufferedReader;
 import java.io.File;
@@ -14,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.SecretKey;
 import Cifrador.CifradorHASH;
+import java.io.FileReader;
 import javax.crypto.spec.SecretKeySpec;
 
 public class ProtocoloCliente {
@@ -117,26 +119,26 @@ public class ProtocoloCliente {
                     leImprimeRespostaServidor(in);
                     fecharConexao = true;
                 } else if (mensagem.equalsIgnoreCase("ENVIAR")) {
-                    byte[] hashCifrado;
-                    String texto = "";
-                    System.out.println("Digite caminho do arquivo(com extensao): ");
-                    String caminho = stdIn.readLine();
-                    File arquivo = new File("" + caminho);
-                    byte[] arqHash = CifradorHASH.hashArq(arquivo.toString().getBytes());
-                    hashCifrado = CifradorRSA.codificar(arqHash, puCliente);
-                    texto = (arquivo + "" + hashCifrado).trim();
-                    byte[] arqEnviar = CifradorRSA.codificar(texto.getBytes(), puServidor);
-                    Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData(arqEnviar);
-                    dataToServer.setMessage("ENVIAR");
-                    out.writeObject(dataToServer);
-                    /*
-                    1. Pede nome do arquivo em disco a ser transferido
-                    2. gera hash do conteudo do arquivo e criptografa com a
-                    CHAVE PUBLICA do cliente
-                    3. Concatena o hash com o arquivo
-                    4. Codifica o resultado com a chave secreta do cliente (skeyCliente)
-                    5. Envia para o arquivo e o nome do arquivo para servidor
-                     */
+                    boolean status = true;                    
+                    String nomeArq,msg = "";
+                    msg = "ENVIAR";
+                    while(status){
+                        if(msg != null){
+                            if(msg.equalsIgnoreCase("ENVIAR")){                                
+                                System.out.println("Digite o nome do Arquivo: ");
+                                nomeArq = stdIn.readLine();
+                                enviarNomeArq(out,nomeArq);
+                                leImprimeRespostaServidor(in);
+                                msg = "CAMINHO";
+                            }else if(msg.equalsIgnoreCase("CAMINHO")){
+                                System.out.println("Digite caminho do arquivo(com extensao): ");        
+                                String caminho = stdIn.readLine();
+                                enviarArqCifrado(out,caminho);
+                                leImprimeRespostaServidor(in);
+                                status = false;
+                            }
+                        } 
+                    }                    
                 } else if (mensagem.equalsIgnoreCase("BUSCAR")) {
                     /*
                     1. Pede para servidor listar arquivos(envia LISTAR).
@@ -325,5 +327,45 @@ public class ProtocoloCliente {
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+    
+    private void enviarNomeArq(ObjectOutputStream out, String nomeArq) {
+       byte[] nome = CifradorRSA.codificar(nomeArq.getBytes(), this.puServidor);      
+       dataToServer = new ProtocolData(nome);        
+        try {
+            dataToServer.setMessage("CAMINHO");
+            out.writeObject(dataToServer);
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    private void enviarArqCifrado(ObjectOutputStream out, String caminho) throws IOException {
+        byte[] hashCifrado;
+        byte[] enviar;
+        String texto = "";
+        BufferedReader arquivo;
+        arquivo = new BufferedReader(new FileReader(caminho));
+        while(arquivo.ready()){
+            texto = texto+arquivo.readLine();
+        }
+        byte[] arqHash = CifradorHASH.hashArq(texto.getBytes());        
+        hashCifrado = CifradorRSA.codificar(arqHash, puCliente);
+        enviar = new byte[hashCifrado.length + texto.getBytes().length];
+        for(int i=0; i<hashCifrado.length; i++){
+            enviar[i] = hashCifrado[i];
+        }
+        byte[] bytesArq = texto.getBytes();
+        for(int i=0; i< texto.getBytes().length; i++){
+            enviar[i+hashCifrado.length] = bytesArq[i];
+        }                    
+        byte[] arqEnviar = CifradorAES.codificar(enviar, skeyCliente);
+        Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData(arqEnviar);
+        dataToServer.setMessage("ENVIAR");
+        try{
+            out.writeObject(dataToServer);
+        }catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }        
     }
 }
