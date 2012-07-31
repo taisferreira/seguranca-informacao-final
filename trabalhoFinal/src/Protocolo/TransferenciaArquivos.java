@@ -52,9 +52,9 @@ public class TransferenciaArquivos extends Comum {
                 diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);               
             }else{
                 diretorio.mkdirs();
-                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);
-                salvarArq(arquivo,diretorio);
+                diretorio = new File("c:\\"+this.idCliente + "\\"+nomeArquivo);                
             }
+            salvarArq(arquivo,diretorio);
             Comum.escreveLog(this.logfile);          
             System.out.println("Salvando arquivo");
             theOutput = new ProtocolData("Arquivo " + nomeArquivo + " foi salvo!");
