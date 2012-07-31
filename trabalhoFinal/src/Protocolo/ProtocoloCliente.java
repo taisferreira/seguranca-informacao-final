@@ -141,9 +141,14 @@ public class ProtocoloCliente {
                             } else if (msg.equalsIgnoreCase("CAMINHO")) {
                                 System.out.println("Digite caminho do arquivo(com extensao): ");
                                 String caminho = stdIn.readLine();
-                                enviarArqCifrado(out, caminho);
-                                leImprimeRespostaServidor(in);
-                                status = false;
+                                File testeCaminho = new File(caminho);
+                                if(testeCaminho.isFile()){
+                                    enviarArqCifrado(out, caminho);
+                                    leImprimeRespostaServidor(in);
+                                    status = false;
+                                }else{
+                                    System.out.println("\nCaminho inválido...\n");
+                                }
                             }
                         }
                     }
