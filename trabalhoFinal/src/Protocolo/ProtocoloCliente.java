@@ -16,6 +16,7 @@ import java.util.logging.Logger;
 import javax.crypto.SecretKey;
 import Cifrador.CifradorHASH;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
@@ -129,7 +130,7 @@ public class ProtocoloCliente {
                     dataToServer = new ProtocolData("SAIR");
                     dataToServer.setMessage(mensagem);
                     out.writeObject(dataToServer);
-                    leImprimeRespostaServidor(in);
+                    decodificaImprimeRespostaServidor(in);
                     fecharConexao = true;
                 } else if (mensagem.equalsIgnoreCase("ENVIAR")) {
                     boolean status = true;
@@ -141,7 +142,7 @@ public class ProtocoloCliente {
                                 System.out.println("Digite o nome do Arquivo: ");
                                 nomeArq = stdIn.readLine();
                                 enviarNomeArq(out, nomeArq);
-                                leImprimeRespostaServidor(in);
+                                decodificaImprimeRespostaServidor(in);
                                 msg = "CAMINHO";
                             } else if (msg.equalsIgnoreCase("CAMINHO")) {
                                 System.out.println("Digite caminho do arquivo(com extensao): ");
@@ -149,7 +150,7 @@ public class ProtocoloCliente {
                                 File testeCaminho = new File(caminho);
                                 if (testeCaminho.isFile()) {
                                     enviarArqCifrado(out, caminho);
-                                    leImprimeRespostaServidor(in);
+                                    decodificaImprimeRespostaServidor(in);
                                     status = false;
                                 } else {
                                     System.out.println("\nCaminho inválido...\n");
@@ -160,10 +161,9 @@ public class ProtocoloCliente {
                 } else if (mensagem.equalsIgnoreCase("LISTAR")) {
                     listarArquivos(in, out);
                 } else if (mensagem.equalsIgnoreCase("BUSCAR")) {
-                    listarArquivos(in, out);
-
-                    buscarArquivo(in, out);
-
+                    if (listarArquivos(in, out)) {
+                        buscarArquivo(in, out);
+                    }
                 } else {
                     dataToServer = new ProtocolData();
                     dataToServer.setMessage(mensagem);
@@ -265,6 +265,19 @@ public class ProtocoloCliente {
         }
     }
 
+    public void decodificaImprimeRespostaServidor(ObjectInputStream in) {
+        try {
+            dataFromServer = (ProtocolData) in.readObject();
+            byte[] resposta = Cifrador.CifradorAES.decodificar(dataFromServer.getBytes(), chaveSessao);
+            String imprimir = new String(resposta);
+            System.out.println(imprimir);
+        } catch (IOException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (ClassNotFoundException ex) {
+            Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     /*
      * Verificar autenticidade do id do servidor de arquivos
      */
@@ -306,22 +319,45 @@ public class ProtocoloCliente {
         X509Certificate certid;
         try {
             //Pede chave do id ao servidor de autenticacao
-            byte[] bytesid = CifradorRSA.codificar(id.getBytes(), autenticador.getPuServidor());
+            //byte[] bytesid = CifradorRSA.codificar(id.getBytes(), autenticador.getPuServidor());
+            byte[] bytesid = Cifrador.CifradorAES.codificar(id.getBytes(), autenticador.getChaveSessao());
             dataToServer = new ProtocolData(bytesid);
             dataToServer.setMessage("CHAVE");
             outAutenticacao.writeObject(dataToServer);
 
             // Se servidor de autenticacao tem chave, retorna a chave
             //Se não, retorna null
-            dataFromServer = (ProtocolData) inAutenticacao.readObject();
-            certid = dataFromServer.getCertificado();
 
-            if (certid == null) {
-                System.out.println("Servidor de autenticação não achou " + id + ".");
-            } else {
-                System.out.println("Certificado de " + id + " encontrado!");
-                puid = certid.getPublicKey();
+            boolean continua = true;
+            int tentativas = 0;
+            while (continua) {
+                dataFromServer = (ProtocolData) inAutenticacao.readObject();
+
+                if (dataFromServer == null) {
+                    tentativas++;
+                } else {
+                    if (dataFromServer.getMessage().equals("CHAVE")) {
+                        byte[] certcod = dataFromServer.getBytes();
+                        if (certcod == null) {
+                            System.out.println(id + "não é confiável.");
+                        } else {
+                            certcod = Cifrador.CifradorAES.decodificar(certcod, autenticador.getChaveSessao());
+                            dataFromServer.setBytes(certcod);
+                            certid = dataFromServer.getCertificado();
+                            System.out.println("Certificado de " + id + " encontrado!");
+                            puid = certid.getPublicKey();
+                        }
+                        continua = false;
+                    } else {
+                        tentativas++;
+                        if (tentativas > 1000) {
+                            continua = false;
+                            System.out.println("Servidor não está respondendo.");
+                        }
+                    }
+                }
             }
+            dataFromServer = null;
         } catch (ClassNotFoundException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
@@ -333,10 +369,10 @@ public class ProtocoloCliente {
 
     public void encerrar_conexao(ObjectOutputStream autout, ObjectInputStream autin) {
         try {
-            dataToServer = new Protocolo.ProtocolData("Encerrando");
+            dataToServer = new Protocolo.ProtocolData();
             dataToServer.setMessage("SAIR");
             autout.writeObject(dataToServer);
-            leImprimeRespostaServidor(autin);
+            decodificaImprimeRespostaServidor(autin);
             autout.close();
             autin.close();
         } catch (IOException ex) {
@@ -350,11 +386,12 @@ public class ProtocoloCliente {
          */
         try {//garantir que so o servidor abre
             //enviando id do cliente cifrado com a chave publica do servidor para registrar.
-            byte[] idByte = CifradorRSA.codificar(idCliente.getBytes(), puServidor);
+            //byte[] idByte = CifradorRSA.codificar(idCliente.getBytes(), puServidor);
+            byte[] idByte = Cifrador.CifradorAES.codificar(idCliente.getBytes(), chaveSessao);
             dataToServer = new ProtocolData(idByte);
             dataToServer.setMessage("REGISTRAR");
             autout.writeObject(dataToServer);
-            leImprimeRespostaServidor(autin);
+            decodificaImprimeRespostaServidor(autin);
 
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
@@ -362,10 +399,11 @@ public class ProtocoloCliente {
     }
 
     /*
-     * 1. Pede para servidor listar arquivos. 2. Le lista recebida e imprime na
-     * tela
+     * 1. Pede para servidor listar arquivos. 
+     * 2. Le lista recebida e imprime na tela
      */
-    private void listarArquivos(ObjectInputStream in, ObjectOutputStream out) {
+    private boolean listarArquivos(ObjectInputStream in, ObjectOutputStream out) {
+        boolean retorno = false;
         try {
             byte[] idByte = Cifrador.CifradorAES.codificar(idCliente.getBytes(), chaveSessao);
             dataToServer = new ProtocolData(idByte);
@@ -385,9 +423,18 @@ public class ProtocoloCliente {
                     String arquivos = new String(listaarquivos);
                     System.out.println(arquivos);
                     continua = false;
+                    retorno = true;
+                } else if (dataFromServer.getMessage().equals("VAZIO")) {
+                    byte[] listaarquivos = dataFromServer.getBytes();
+                    listaarquivos = Cifrador.CifradorAES.decodificar(listaarquivos, chaveSessao);
+                    String arquivos = new String(listaarquivos);
+                    System.out.println(arquivos);
+                    continua = false;
+                    retorno = false;
                 } else {
                     if (tentativas > 1000) {
                         continua = false;
+                        retorno = false;
                         System.out.println("Servidor não está respondendo.");
                     }
                     tentativas++;
@@ -399,6 +446,7 @@ public class ProtocoloCliente {
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         }
+        return retorno;
     }
 
     /*
@@ -433,7 +481,8 @@ public class ProtocoloCliente {
                     bytesArquivo = dataFromServer.getBytes();
 
                     if (bytesArquivo == null) {
-                        System.out.println("Servidor não encontrou " + arquivo + "\n");
+                        System.out.println("Servidor não encontrou arquivo com "
+                                + "nome " + arquivo + "\n");
                         return;
                     } else {
                         bytesArquivo = Cifrador.CifradorAES.decodificar(bytesArquivo, chaveSessao);
@@ -466,24 +515,11 @@ public class ProtocoloCliente {
                         String diretorio = stdIn.readLine();
 
                         if (diretorio == null || diretorio.isEmpty()) {
-                            /*
-                             * Diretorio padrão caso o cliente não especifique
-                             */
-                            File file = new File(idCliente);
-                            if (!file.exists()) {
-                                file.mkdir();
-                            }
-
-                            file = new File(idCliente + "/downloads");
-                            if (!file.exists()) {
-                                file.mkdir();
-                            }
-
                             diretorio = idCliente + "/downloads/";
                         } else {
                             if (!diretorio.substring(diretorio.length() - 1).equals("/")) {
                                 diretorio = diretorio + "/";
-                            } 
+                            }
                         }
 
                         File file = new File(diretorio);
@@ -492,7 +528,7 @@ public class ProtocoloCliente {
                             file = new File(diretorio);
                             int i = 1;
                             while (!file.createNewFile()) {/*já existe arquivo com este nome no diretorio*/
-                                file = new File(diretorio+i);
+                                file = new File(diretorio + i);
                                 i++;
                             }
 
@@ -504,10 +540,34 @@ public class ProtocoloCliente {
 
                         } else {
                             System.out.println("Infelizmente, não consegui salvar "
-                                    + "o seu arquivo.\nVeririfique se você tem " +
-                                    "permissão de acesso ou o diretorio especificado " +
-                                    "realmente existe.\n");
-                            /*TODO: neste caso salvar no dir padrão*/
+                                    + "o seu arquivo no diretório especificado:\n"
+                                    + "Diretorio não existe ou não permite acesso\n");
+
+                            /*Para evitar que o arquivo buscado seja perdido
+                            salva no diretório padrão*/
+                            file = new File(idCliente);
+                            if (!file.exists()) {
+                                file.mkdir();
+                            }
+
+                            file = new File(idCliente + "/downloads");
+                            if (!file.exists()) {
+                                file.mkdir();
+                            }
+
+                            diretorio = idCliente + "/downloads/" + arquivo;
+                            file = new File(diretorio);
+                            int i = 1;
+                            while (!file.createNewFile()) {
+                                file = new File(diretorio + i);
+                                i++;
+                            }
+
+                            FileOutputStream fos = new FileOutputStream(file);
+                            fos.write(salvar);
+                            fos.close();
+                            System.out.println("Seu arquivo foi salvo "
+                                    + "em: " + file.getAbsolutePath());
                         }
                     }
                     continua = false;
@@ -560,21 +620,26 @@ public class ProtocoloCliente {
         } catch (IOException ex) {
             Logger.getLogger(TransferenciaArquivos.class.getName()).log(Level.SEVERE, null, ex);
         }
-        byte[] arqHash = CifradorHASH.hashArq(texto/*
-                 * .getBytes()
-                 */);
+        byte[] arqHash = CifradorHASH.hashArq(texto/*.getBytes()*/);
         hashCifrado = CifradorRSA.codificar(arqHash, puCliente);
 
-        enviar = new byte[hashCifrado.length + texto.length];
+        /*concatenar hash com arquivo*/
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        outputStream.write(hashCifrado);
+        outputStream.write(texto);
+        enviar = outputStream.toByteArray();
+
+        /*enviar = new byte[hashCifrado.length + texto.length];
         for (int i = 0; i < hashCifrado.length; i++) {
             enviar[i] = hashCifrado[i];
         }
         byte[] bytesArq = texto;
         for (int i = 0; i < texto.length; i++) {
             enviar[i + hashCifrado.length] = bytesArq[i];
-        }
+        }*/
 
         byte[] arqEnviar = CifradorAES.codificar(enviar, skeyCliente);
+        arqEnviar = CifradorAES.codificar(arqEnviar, chaveSessao);
         dataToServer = new Protocolo.ProtocolData(arqEnviar);
         dataToServer.setMessage("ENVIAR");
         try {

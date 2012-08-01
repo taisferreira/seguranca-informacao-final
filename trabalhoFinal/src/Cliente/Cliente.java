@@ -246,13 +246,7 @@ public class Cliente {
 
     private void encerrarServAut() {
         try {
-            Protocolo.ProtocolData dataToServer = new Protocolo.ProtocolData("SAIR");
-            dataToServer.setMessage("SAIR");
-            autout.writeObject(dataToServer);
-            pAutenticacao.leImprimeRespostaServidor(autin);
-
-            autout.close();
-            autin.close();
+            pAutenticacao.encerrar_conexao(autout, autin);
             autServerSocket.close();
         } catch (IOException ex) {
             Logger.getLogger(Cliente.class.getName()).log(Level.SEVERE, null, ex);

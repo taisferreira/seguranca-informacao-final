@@ -1,9 +1,11 @@
 package Protocolo;
 
-import Cifrador.CifradorRSA;
 import armazemChaves.ArmazemChaves;
 import java.security.PublicKey;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class Autenticacao extends Comum {
 
@@ -26,26 +28,30 @@ public class Autenticacao extends Comum {
         sMessage = theInput.getMessage();
 
         if (sMessage.equalsIgnoreCase("SAIR")) {
-            theOutput = new ProtocolData("Encerrando...");
+            byte[] resposta = "Encerrando...".getBytes();
+            resposta = Cifrador.CifradorAES.codificar(resposta, chaveSessao);
+            theOutput = new ProtocolData(resposta);
             state = EXIT;
 
         } else if (sMessage.equalsIgnoreCase("REGISTRAR")) {
             byte[] idByte = theInput.getBytes();
-            String idAVerificar = new String(CifradorRSA.decodificar(idByte, prServidor));
-
+            //String idAVerificar = new String(CifradorRSA.decodificar(idByte, prServidor));
+            String idAVerificar = new String(Cifrador.CifradorAES.decodificar(idByte, chaveSessao));
+            String resposta;
             if (chavesCliente.contemID(idAVerificar)) {
-                theOutput = new ProtocolData(idAVerificar + " já está registrado.");
-
-            } else if (!idAVerificar.equals(idCliente)) {
-                theOutput = new ProtocolData("Não foi possível"
-                        + " registrar " + idAVerificar + ", não confere com"
-                        + " id do certificado.");
+                resposta = idAVerificar + " já está registrado.";
                 
+            } else if (!idAVerificar.equals(idCliente)) {
+                resposta = "Não foi possível registrar " + idAVerificar + ", " +
+                        "não confere com id do certificado.";
             } else {
                 System.out.println("Registrando " + idAVerificar);
                 chavesCliente.guardaCertificado(idAVerificar, this.certCliente);
-                theOutput = new ProtocolData(idAVerificar + " registrado!");
+                resposta = idAVerificar + " registrado!";
+                
             }
+            byte[] enviar = Cifrador.CifradorAES.codificar(resposta.getBytes(), chaveSessao);
+            theOutput = new ProtocolData(enviar);
             state = CONNECTED;
         } else if (sMessage.equalsIgnoreCase("CHAVE")) {
             /* 1. verifica se tem entrada na key store para o id especificado.
@@ -53,18 +59,26 @@ public class Autenticacao extends Comum {
             3. Se não tem, envia null*/
             X509Certificate cert = null;
             byte[] idByte = theInput.getBytes();
-            String idAVerificar = new String(CifradorRSA.decodificar(idByte, prServidor));
+            //String idAVerificar = new String(CifradorRSA.decodificar(idByte, prServidor));
+            String idAVerificar = new String(Cifrador.CifradorAES.decodificar(idByte, chaveSessao));
 
             if (chavesCliente.contemID(idAVerificar)) {
                 cert = (X509Certificate) chavesCliente.pegaCertificado(idAVerificar);
                 System.out.println("Enviando certificado de " + idAVerificar);
-                theOutput = new ProtocolData(cert);
+                
+                byte[] enviar = null;
+                try {
+                    enviar = Cifrador.CifradorAES.codificar(cert.getEncoded(), chaveSessao);
+                } catch (CertificateEncodingException ex) {
+                    Logger.getLogger(Autenticacao.class.getName()).log(Level.SEVERE, null, ex);
+                }
+                theOutput = new ProtocolData(enviar);
 
             } else {
                 theOutput = new ProtocolData(cert);
                 System.out.println("Certificado de " + idAVerificar + " não encontrado!");
             }
-
+            theOutput.setMessage("CHAVE");
             state = CONNECTED;
 
         } else {
@@ -74,7 +88,9 @@ public class Autenticacao extends Comum {
             super.state = CONNECTED;
         }
         /*4. Armazena log*/
-        escreveLog(this.idCliente + " " + sMessage + " " + state + " " + theOutput);
+        //escreveLog(this.idCliente + " " + sMessage + " " + state + " " + theOutput);
+        Comum.escreveLog("\nServidor de Autenticacao\nCliente: " + idCliente
+                + "\nOperação: "+sMessage+"\nCertificado do cliente: "+certCliente);
     }
 
     @Override

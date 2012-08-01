@@ -68,6 +68,7 @@ public class Comum {
 
             case HANDSHAKING:
                 sMessage = theInput.getMessage();
+                String log;
                 if (sMessage.equalsIgnoreCase("CONECTAR")) {
                     /*1. Recebe certificado do cliente*/
                     certCliente = theInput.getCertificado();
@@ -77,10 +78,10 @@ public class Comum {
 
                     /* 2. Envia a seu certificado*/
                     theOutput = new ProtocolData(certServidor);
-
+                    log = "\n"+idServidor+"\nCliente: " + idCliente + "\nOperação:" +
+                            " CONECTAR\nCertificado do cliente: "+certCliente;
                 } else if (sMessage.equalsIgnoreCase("SKEY")) {
                     System.out.println(this.idCliente+" pedindo "+theInput.toString());
-
                     /* 3. Verificar se cliente foi registrado*/
                     if (idEhAutentico(this.idCliente, puCliente)) {
                         /*Se cliente é autentico, envia chave a ser usada nesta sessao*/
@@ -88,20 +89,32 @@ public class Comum {
                         chaveSessao = (SecretKey) new SecretKeySpec(chaveSessao.getEncoded(), "AES");
                         byte [] bidServidor = Cifrador.CifradorRSA.codificar(chaveSessao.getEncoded(), puCliente);
                         theOutput = new ProtocolData(bidServidor);
+                        log = "\n"+idServidor+"\nCliente: " + idCliente + "\n" +
+                                "Operação: SKEY";
                     } else {
                         theOutput = new ProtocolData("Cliente não é confiável.");
                         state = LOGINERROR;
+                        log = "\n"+idServidor+"\nCliente: " + idCliente + "\n" +
+                                "Cliente não é confiável\n" +
+                                "Certificado do cliente: "+certCliente;
                     }
+                    
                 } else if (sMessage.equalsIgnoreCase("OK")) {
                     /*Tudo certo no lado cliente*/
                     theOutput = new ProtocolData("Conexao estabelecida!");
                     state = CONNECTED;
+                    log = "\n"+idServidor+"\nCliente: " + idCliente + "\n" +
+                                "Operação: OK\nConexao estabelecida!";
                 }
                 else {
                     /*O cliente não aceitou a conexão*/
                     theOutput = new ProtocolData("Encerrando...");
                     state = EXIT;
+                    log = "\n"+idServidor+"\nCliente: " + idCliente + "\n" +
+                                "Operação: "+sMessage+"\nEncerrando...\n" +
+                                "Certificado do cliente: "+certCliente;
                 }
+                Comum.escreveLog(log);
                 break;
 
             case CONNECTED:
@@ -171,7 +184,7 @@ public class Comum {
         try {
             w = new PrintWriter(new FileWriter(logfile,true));
             Date date = new Date();
-            w.println(date.toString() +" "+ log);
+            w.println("\n\n"+date.toString() +" "+ log);
             w.flush();
             w.close();
         } catch (IOException ex) {
