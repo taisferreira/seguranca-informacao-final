@@ -125,7 +125,7 @@ public class Comum {
         if (sMessage.equalsIgnoreCase("SAIR")) {
                     theOutput = new ProtocolData("Encerrando...");
                     state = EXIT;
-                    /*Armazenar log*/
+                    escreveLog("\nCliente"+idCliente+"\nOperação: SAIR\n");
 
         } else if (sMessage.equalsIgnoreCase("ENVIAR")) {
             theOutput = new ProtocolData("Dados recebidos com sucesso!");

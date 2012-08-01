@@ -18,7 +18,6 @@ import Cifrador.CifradorHASH;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.InputStream;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -435,6 +434,7 @@ public class ProtocoloCliente {
 
                     if (bytesArquivo == null) {
                         System.out.println("Servidor não encontrou " + arquivo + "\n");
+                        return;
                     } else {
                         bytesArquivo = Cifrador.CifradorAES.decodificar(bytesArquivo, chaveSessao);
 
@@ -458,6 +458,7 @@ public class ProtocoloCliente {
                         } else {
                             System.out.println("O arquivo enviado pelo servidor"
                                     + " está corrompido.\n Saindo sem salvar.\n");
+                            return;
                         }
 
                         //salvar arquivo baixado
@@ -478,26 +479,35 @@ public class ProtocoloCliente {
                                 file.mkdir();
                             }
 
-                            diretorio = idCliente + "/downloads/" + arquivo;
+                            diretorio = idCliente + "/downloads/";
                         } else {
-                            if (diretorio.substring(diretorio.length() - 1).equals("/")) {
-                                diretorio = diretorio + arquivo;
-                            } else {
-                                diretorio = diretorio + "/" + arquivo;
-                            }
+                            if (!diretorio.substring(diretorio.length() - 1).equals("/")) {
+                                diretorio = diretorio + "/";
+                            } 
                         }
 
                         File file = new File(diretorio);
-                        if (file.exists() && file.createNewFile()) {
+                        if (file.exists() && file.canWrite()) {
+                            diretorio = diretorio + arquivo;
+                            file = new File(diretorio);
+                            int i = 1;
+                            while (!file.createNewFile()) {/*já existe arquivo com este nome no diretorio*/
+                                file = new File(diretorio+i);
+                                i++;
+                            }
+
                             FileOutputStream fos = new FileOutputStream(file);
                             fos.write(salvar);
                             fos.close();
                             System.out.println("Seu arquivo foi salvo "
                                     + "em: " + file.getAbsolutePath());
+
                         } else {
                             System.out.println("Infelizmente, não consegui salvar "
-                                    + "o seu arquivo. Veririfique se o diretorio"
-                                    + " especificado realmente existe.");
+                                    + "o seu arquivo.\nVeririfique se você tem " +
+                                    "permissão de acesso ou o diretorio especificado " +
+                                    "realmente existe.\n");
+                            /*TODO: neste caso salvar no dir padrão*/
                         }
                     }
                     continua = false;
@@ -519,7 +529,8 @@ public class ProtocoloCliente {
     }
 
     private void enviarNomeArq(ObjectOutputStream out, String nomeArq) {
-        byte[] nome = CifradorRSA.codificar(nomeArq.getBytes(), this.puServidor);
+        //byte[] nome = CifradorRSA.codificar(nomeArq.getBytes(), this.puServidor);
+        byte[] nome = Cifrador.CifradorAES.codificar(nomeArq.getBytes(), chaveSessao);
         dataToServer = new ProtocolData(nome);
         try {
             dataToServer.setMessage("CAMINHO");

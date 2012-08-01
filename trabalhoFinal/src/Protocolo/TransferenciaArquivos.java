@@ -1,7 +1,5 @@
 package Protocolo;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -59,13 +57,14 @@ public class TransferenciaArquivos extends Comum {
 
             }
             salvarArq(arquivo,diretorio);
-            Comum.escreveLog(logfile);          
+            Comum.escreveLog(logfile);
 
             System.out.println("Salvando arquivo");
             theOutput = new ProtocolData("Arquivo " + nomeArquivo + " foi salvo!");
         }else  if(sMessage.equalsIgnoreCase("CAMINHO")){
-           byte[] result = Cifrador.CifradorRSA.decodificar(theInput.getBytes(), prServidor);
-            nomeArquivo = new String(result);            
+           //byte[] result = Cifrador.CifradorRSA.decodificar(theInput.getBytes(), prServidor);
+            byte[] result = Cifrador.CifradorAES.decodificar(theInput.getBytes(), chaveSessao);
+            nomeArquivo = new String(result);
             System.out.println("Salvando  nome do arquivo");
             theOutput = new ProtocolData("O arquivo " + nomeArquivo + " foi salvo!");
         } else if (sMessage.equalsIgnoreCase("LISTAR")) {
@@ -157,7 +156,6 @@ public class TransferenciaArquivos extends Comum {
         }
         System.out.println(idCliente + " não é confiável.");
         return false;
-        //return true;/*o código acima contém bugs*/
     }
 
     private void registrar() {
