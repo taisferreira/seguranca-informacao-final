@@ -135,26 +135,40 @@ public class ProtocoloCliente {
                 } else if (mensagem.equalsIgnoreCase("ENVIAR")) {
                     boolean status = true;
                     String nomeArq, msg = "";
+                    String caminho = "";
                     msg = "ENVIAR";
                     while (status) {
                         if (msg != null) {
                             if (msg.equalsIgnoreCase("ENVIAR")) {
                                 System.out.println("Digite o nome do Arquivo: ");
                                 nomeArq = stdIn.readLine();
+
+                                System.out.println("Digite caminho do arquivo(com extensao): ");
+                                caminho = stdIn.readLine();
+
+                                File testeCaminho = new File(caminho);
+                                while(!testeCaminho.isFile()){
+                                    System.out.println("\nCaminho inválido...\n");
+                                    System.out.println("Digite caminho do arquivo " +
+                                            "que deseja enviar, incluindo seu nome e extensao: ");
+                                    caminho = stdIn.readLine();
+                                    testeCaminho = new File(caminho);
+                                }
+
+                                if(nomeArq == null || nomeArq.isEmpty()){
+                                    nomeArq = pegaNomeArquivo(caminho);
+                                }
+                                else{
+                                    nomeArq = nomeArq + pegaExtensaoArquivo(caminho);
+                                }
+
                                 enviarNomeArq(out, nomeArq);
                                 decodificaImprimeRespostaServidor(in);
                                 msg = "CAMINHO";
                             } else if (msg.equalsIgnoreCase("CAMINHO")) {
-                                System.out.println("Digite caminho do arquivo(com extensao): ");
-                                String caminho = stdIn.readLine();
-                                File testeCaminho = new File(caminho);
-                                if (testeCaminho.isFile()) {
-                                    enviarArqCifrado(out, caminho);
-                                    decodificaImprimeRespostaServidor(in);
-                                    status = false;
-                                } else {
-                                    System.out.println("\nCaminho inválido...\n");
-                                }
+                                enviarArqCifrado(out, caminho);
+                                decodificaImprimeRespostaServidor(in);
+                                status = false;
                             }
                         }
                     }
@@ -647,5 +661,21 @@ public class ProtocoloCliente {
         } catch (IOException ex) {
             Logger.getLogger(ProtocoloCliente.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    private String pegaNomeArquivo(String caminho) {
+        String[] path = caminho.split("/");
+        return path[path.length-1];
+    }
+
+    private String pegaExtensaoArquivo(String caminho) {
+        String nome = pegaNomeArquivo(caminho);
+        //String[] extensao = nome.split(".");
+        String retorno = "";
+        int idx = nome.indexOf(".");
+
+        retorno = nome.substring(idx);
+
+        return retorno;
     }
 }

@@ -74,7 +74,7 @@ public class TransferenciaArquivos extends Comum {
             byte[] result = Cifrador.CifradorAES.decodificar(theInput.getBytes(), chaveSessao);
             nomeArquivo = new String(result);
 
-            String resp = "O arquivo " + nomeArquivo + " foi salvo!";
+            String resp = "Nome do arquivo a ser salvo: " + nomeArquivo;
             byte[] respCodificada = Cifrador.CifradorAES.codificar(resp.getBytes(), chaveSessao);
             theOutput = new ProtocolData(respCodificada);
 
