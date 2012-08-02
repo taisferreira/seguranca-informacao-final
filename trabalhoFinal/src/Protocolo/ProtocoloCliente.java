@@ -674,7 +674,9 @@ public class ProtocoloCliente {
         String retorno = "";
         int idx = nome.indexOf(".");
 
-        retorno = nome.substring(idx);
+        if(idx > -1 && idx < nome.length()){
+            retorno = nome.substring(idx);
+        }
 
         return retorno;
     }
